@@ -25,8 +25,16 @@ for p in range(256):
 contigs = [(c, s, l) for c, s, l in read_idx(PREP) if c != "chrM"]
 iv = load_intervals("chm13")
 
-def gz(path, arr):
-    with gzip.open(path, "wb", compresslevel=6) as f: f.write(np.ascontiguousarray(arr).tobytes())
+def write_gz(path, data):
+    """Write gzip(data) only when the decompressed content of the existing file differs (keeps git history quiet)."""
+    if os.path.exists(path):
+        try:
+            with gzip.open(path, "rb") as f:
+                if f.read() == data: return
+        except OSError: pass
+    with gzip.GzipFile(path, "wb", compresslevel=6, mtime=0) as f: f.write(data)
+
+def gz(path, arr): write_gz(path, np.ascontiguousarray(arr).tobytes())
 
 def level_sums(col, w):
     n = len(col); nw = (n + w - 1) // w
@@ -97,7 +105,7 @@ for sid, desc, chrom, s, e in spots:
     off = {c: st for c, st, l in contigs}[chrom]; L = {c: l for c, st, l in contigs}[chrom]; e = min(e, L)
     pres = np.fromfile(RUN + ".pres.u8", np.uint8, count=e - s, offset=off + s)
     mult = np.fromfile(RUN + ".mult.u8", np.uint8, count=e - s, offset=off + s)
-    with gzip.open(f"{OUT}/spot_{sid}.bin.gz", "wb", compresslevel=6) as f: f.write(pres.tobytes() + mult.tobytes())
+    write_gz(f"{OUT}/spot_{sid}.bin.gz", pres.tobytes() + mult.tobytes())
     spot_meta.append({"id": sid, "desc": desc, "chrom": chrom, "start": int(s), "end": int(e)})
     print("spot", sid, chrom, s, e, file=sys.stderr)
 
@@ -123,7 +131,7 @@ if os.path.exists(K1 + ".json"):
         off = {c: st_ for c, st_, l in contigs}[u["chrom"]]; s = max(u["start"] - 3000, 0); e = u["end"] + 3000
         pres = np.fromfile(RUN + ".pres.u8", np.uint8, count=e - s, offset=off + s); mult = np.fromfile(RUN + ".mult.u8", np.uint8, count=e - s, offset=off + s)
         sid = f"ucs{i:02d}"
-        with gzip.open(f"{OUT}/spot_{sid}.bin.gz", "wb", compresslevel=6) as f: f.write(pres.tobytes() + mult.tobytes())
+        write_gz(f"{OUT}/spot_{sid}.bin.gz", pres.tobytes() + mult.tobytes())
         u["spot"] = sid; u["spot_start"] = s; u["spot_end"] = e
 json.dump(ucs, open(f"{OUT}/ucs.json", "w"), separators=(",", ":"))
 
