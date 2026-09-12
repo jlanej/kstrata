@@ -99,7 +99,7 @@ kbd { font: 12px monospace; background:#eee; padding: 1px 4px; border-radius: 3p
 
 <h2>Kilobases identical between human and gibbon</h2>
 <div class="panel">
-  <p class="small">Stretches of at least 1,001 bases that are letter-for-letter identical between CHM13 and the siamang assembly (found as runs of shared 1001-mers on the 1/8 sample; the true segment may be up to 8 bases longer at each end). Click a row to view the stretch and 3 kb of flanking sequence base by base.</p>
+  <p class="small">Stretches of at least 1,001 bases that are letter-for-letter identical between CHM13 and the siamang assembly (found as runs of shared 1001-mers on the 1/8 sample; the true segment may be up to 8 bases longer at each end). Two kinds: telomeric (TTAGGG)n tracts at chromosome ends, perfect repeats identical in every ape, and stretches of single-copy sequence, the ultraconserved elements. Click a row to view the stretch and 3 kb of flanking sequence base by base.</p>
   <div id="ucs"></div>
 </div>
 
@@ -358,8 +358,8 @@ function sortable(container, rows, cols, onClick) {
 const arrRows = meta.arrays.map(a => { const r = [`${a.chrom}:${(a.start / 1e6).toFixed(2)}-${(a.end / 1e6).toFixed(2)} Mb`, a.n / 1e6, a.single_copy_pct].concat(showSubs.map(s => a.shared_pct[s])); r._key = `${a.chrom}:${Math.max(0, a.start - 200000)}-${a.end + 200000}`; return r; });
 sortable(document.getElementById('arrays'), arrRows, ['active HOR array', 'Mb', 'single copy %'].concat(showSubs.map(s => SUBJ_LAB[s].replace(' (human)', '') + ' %')), key => { setView(key); document.getElementById('browser').scrollIntoView({ behavior: 'smooth' }); });
 // ucs table
-if (ucs.length) { const rows = ucs.map(u => { const r = [u.chrom, u.start, u.end, u.len, u.in.filter(x => x !== 'siamang').map(x => SUBJ_LAB[x]).join(', ') || '–']; r._key = `${u.chrom}:${u.spot_start}-${u.spot_end}`; return r; });
-  sortable(document.getElementById('ucs'), rows, ['chromosome', 'start', 'end', 'length (bp)', 'also identical in'], key => { setView(key); document.getElementById('browser').scrollIntoView({ behavior: 'smooth' }); }); }
+if (ucs.length) { const rows = ucs.map(u => { const r = [u.chrom, u.start, u.end, u.len, u.kind || '', u.in.filter(x => x !== 'siamang').map(x => SUBJ_LAB[x]).join(', ') || '–']; r._key = `${u.chrom}:${u.spot_start}-${u.spot_end}`; return r; });
+  sortable(document.getElementById('ucs'), rows, ['chromosome', 'start', 'end', 'length (bp)', 'kind', 'also identical in'], key => { setView(key); document.getElementById('browser').scrollIntoView({ behavior: 'smooth' }); }); }
 else document.getElementById('ucs').innerHTML = '<p class="small">(the k = 1001 run was not available when this site was built)</p>';
 
 // ---------- start ----------

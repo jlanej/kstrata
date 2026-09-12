@@ -322,12 +322,16 @@ least 501 bp, from runs of sampled positions: 125,475 with chimpanzee, 32,673 wi
 about 2,100 with each orangutan and 2,278 with siamang (1,104 of them in the rDNA). At 1,001 bp:
 2,186 with chimpanzee (1,794 outside repeats, 222 rDNA, 109 centromere transition, 57 SD), 568
 with gorilla, 56-58 with the orangutans and 48 with siamang (22 non-repeat, 20 SD, 4 other
-censat). Those last few dozen are the most conserved kilobases between human and gibbon,
-ultraconserved elements by another route, and they are a track anyone can pull from the
-k = 1001 array. At 2,001 bp the count is 13 with chimpanzee, 11 with
-bonobo, 5 with gorilla, 6 with each orangutan and 4 with siamang (3 of the 4 inside segmental
-duplications); HG002 still shares 323,668 such segments with CHM13, so 2 kb of exact identity is
-common within a species and all but absent between species.
+censat). Reading the 48 siamang segments from the sequence sorts them into two kinds: 28 are telomeric
+(TTAGGG)n tracts within a few kilobases of a chromosome end (the repeat is perfect and identical
+in every ape, which is also what the 20 "segmental duplication" segments of the class count are),
+and 20 are stretches of single-copy sequence of 1.0 to 1.5 kb, the ultraconserved elements
+(several at classic loci: the PAX6 region of chr11 at 31.90 Mb, chr2 at 60.47 Mb near BCL11A,
+chr19 at 32.87 Mb, chr1 at 213.24 Mb). At 2,001 bp the count is 13 with chimpanzee, 11 with
+bonobo, 5 with gorilla, 6 with each orangutan and 4 with siamang, and all four siamang segments
+are telomeric tracts; HG002 still shares 323,668 such segments with CHM13, so 2 kb of exact
+identity is common within a species and, outside the telomeres, absent between species. The
+per-segment list with its classification is `tables/ucs_k1001_siamang.json`.
 <!-- /ladder:prose -->
 
 ### 4.4 Apparent divergence from k-mer survival
