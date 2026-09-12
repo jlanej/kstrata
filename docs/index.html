@@ -22,7 +22,7 @@ p.lead { font-size: 16px; max-width: 900px; }
 .card { background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px; }
 .card .n { font-size: 24px; font-weight: 700; }
 .card .l { color: var(--muted); font-size: 13px; }
-.panel { background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 14px; margin: 10px 0; }
+.panel { background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 14px; margin: 10px 0; overflow-x: auto; }
 .controls { display:flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 8px; font-size: 14px; }
 .controls select, .controls input, .controls button { font: inherit; padding: 4px 8px; border: 1px solid #ccc; border-radius: 6px; background: #fff; }
 .controls button { cursor: pointer; }
@@ -73,10 +73,10 @@ kbd { font: 12px monospace; background:#eee; padding: 1px 4px; border-radius: 3p
     <span id="status" class="small"></span>
   </div>
   <canvas id="overview" height="26"></canvas>
-  <canvas id="cv" height="430"></canvas>
+  <canvas id="cv" height="600"></canvas>
   <div id="readout"></div>
   <div class="legend" id="legend"></div>
-  <p class="small">Drag to pan, scroll to zoom, hover for values. Windows are 100 kb, 10 kb or 1 kb depending on zoom. In the spotlight regions (grey-bordered bar above the annotation), zooming below 100 kb shows every base: one row per genome, filled where the 31-mer starting at that base is present, and the age stratum and copy number of the k-mer underneath. Positions in the <a href="https://github.com/marbl/CHM13" target="_blank">CHM13v2.0</a> coordinate system; the annotation bar shows the censat v2.1 classes (reds alpha-satellite, greens HSat, blues beta/gamma satellite, purple other) and segmental duplications (yellow).</p>
+  <p class="small">Drag to pan; zoom with the + and &minus; buttons, a double-click, or the mouse wheel while holding <kbd>Ctrl</kbd>/<kbd>&#8984;</kbd>; hover for values; the URL updates so a view can be shared. Windows are 100 kb, 10 kb or 1 kb depending on zoom. In the spotlight regions (grey-bordered bar above the annotation), zooming below 100 kb shows every base: one row per genome, filled where the 31-mer starting at that base is present, and the age stratum and copy number of the k-mer underneath. Positions in the <a href="https://github.com/marbl/CHM13" target="_blank">CHM13v2.0</a> coordinate system; the annotation bar shows the censat v2.1 classes (reds alpha-satellite, greens HSat, blues beta/gamma satellite, purple other) and segmental duplications (yellow).</p>
 </div>
 
 <h2>How much of each region class is shared, and how old it is</h2>
@@ -202,7 +202,7 @@ document.getElementById('zoomIn').onclick = () => zoom(0.5); document.getElement
 window.addEventListener('hashchange', () => { const h = decodeURIComponent(location.hash.slice(1)); if (h && parseRegion(h)) { const r = parseRegion(h); if (r.chrom !== view.chrom || r.s !== view.s || r.e !== view.e) { view = r; chrSel.value = r.chrom; draw(); } } });
 
 // ---------- drawing ----------
-const H = { age: [8, 130], pres: [150, 270], spotbar: [278, 288], annot: [292, 306], base: [318, 430] };
+const H = { age: [8, 150], pres: [170, 300], spotbar: [308, 318], annot: [322, 336], base: [352, 600] };
 let drawing = false, queued = false;
 async function draw() {
   if (drawing) { queued = true; return; } drawing = true;
@@ -211,12 +211,12 @@ async function draw() {
 }
 function bpOf(x) { return view.s + x * (view.e - view.s) / cv.clientWidth; }
 async function drawInner() {
-  const W = cv.clientWidth; const dpr = window.devicePixelRatio || 1; cv.width = W * dpr; cv.height = 430 * dpr; ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  const W = cv.clientWidth; const dpr = window.devicePixelRatio || 1; cv.width = W * dpr; cv.height = 600 * dpr; ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   const span = view.e - view.s; const lev = span > 50e6 ? '100k' : span > 5e6 ? '10k' : '1k'; const wsz = { '100k': 100000, '10k': 10000, '1k': 1000 }[lev];
   status.textContent = `${view.chrom}:${fmt(view.s)}-${fmt(view.e)} (${(span / 1e6).toFixed(3)} Mb, ${lev.replace('k', ' kb')} windows) loading…`;
   const arr = await level(view.chrom, lev); const an = await annot(view.chrom);
   document.getElementById('posIn').value = `${view.chrom}:${fmt(view.s)}-${fmt(view.e)}`;
-  ctx.clearRect(0, 0, W, 430);
+  ctx.clearRect(0, 0, W, 600);
   // aggregate windows into pixel columns
   const agg = new Float64Array(W * NC); const bpp = span / W;
   const i0 = Math.max(0, Math.floor(view.s / wsz)), i1 = Math.min(arr.length / NC, Math.ceil(view.e / wsz));
@@ -247,7 +247,6 @@ async function drawInner() {
   // spotlight bar
   const [sy0, sy1] = H.spotbar;
   for (const sp of spots) if (sp.chrom === view.chrom && sp.end > view.s && sp.start < view.e) { const x0 = Math.max(0, (sp.start - view.s) / bpp), x1 = Math.min(W, (sp.end - view.s) / bpp); ctx.fillStyle = sp.ucs ? '#4575b4' : '#888'; ctx.fillRect(x0, sy0, Math.max(1.5, x1 - x0), sy1 - sy0); }
-  ctx.fillStyle = '#666'; ctx.font = '11px sans-serif'; ctx.fillText('spotlights (per-base data)', W - 150, sy1);
   // annotation
   const [ny0, ny1] = H.annot; ctx.fillStyle = '#f4f4f4'; ctx.fillRect(0, ny0, W, ny1 - ny0);
   for (const [s, e] of an.sd) if (e > view.s && s < view.e) { ctx.fillStyle = CLASS_COL.SD; ctx.fillRect(Math.max(0, (s - view.s) / bpp), ny0, Math.max(1, (Math.min(e, view.e) - Math.max(s, view.s)) / bpp), ny1 - ny0); }
@@ -262,7 +261,7 @@ async function drawInner() {
   const sp = span <= 120000 ? spots.find(p => p.chrom === view.chrom && p.start <= view.s && p.end >= view.e) : null;
   if (sp) {
     const bytes = await spot(sp.id); const n = sp.end - sp.start; const pres = bytes.subarray(0, n), mult = bytes.subarray(n, 2 * n);
-    const rowh = (by1 - by0 - 24) / (SUBS.length + 2);
+    const rowh = (by1 - by0 - 26) / (SUBS.length + 2);
     const cols = new Float32Array(W * (SUBS.length + 8)); const cnt = new Float32Array(W);
     for (let b = Math.max(view.s, sp.start); b < Math.min(view.e, sp.end); b++) {
       const px = Math.floor((b - view.s) / bpp); if (px < 0 || px >= W) continue; const p = pres[b - sp.start]; const m = mult[b - sp.start]; if (!m) continue; cnt[px]++;
@@ -270,13 +269,17 @@ async function drawInner() {
       let a = 0; if (p & 1) a = 1; if (p & 6) a = 2; if (p & 8) a = 3; if (p & 48) a = 4; if (p & 64) a = 5; cols[px * (SUBS.length + 8) + SUBS.length + a]++;
       cols[px * (SUBS.length + 8) + SUBS.length + 6] += Math.log10(m); cols[px * (SUBS.length + 8) + SUBS.length + 7] = 1;
     }
-    for (let j = 0; j < SUBS.length; j++) { const y = by0 + 12 + j * rowh; ctx.fillStyle = '#333'; ctx.font = '10px sans-serif'; ctx.fillText(SUBJ_LAB[SUBS[j]], 2, y + rowh - 2);
+    for (let j = 0; j < SUBS.length; j++) { const y = by0 + 22 + j * rowh; 
+      ctx.fillStyle = '#f2f2f2'; ctx.fillRect(0, y, W, rowh - 1);
       for (let px = 0; px < W; px++) { const c = cnt[px]; if (!c) continue; const f = cols[px * (SUBS.length + 8) + j] / c; ctx.fillStyle = SUBJ_COL[SUBS[j]]; ctx.globalAlpha = f; ctx.fillRect(px, y, 1, rowh - 1); ctx.globalAlpha = 1; } }
-    let y = by0 + 12 + SUBS.length * rowh; ctx.fillStyle = '#333'; ctx.fillText('age stratum', 2, y + rowh - 2);
+    let y = by0 + 22 + SUBS.length * rowh; 
     for (let px = 0; px < W; px++) { const c = cnt[px]; if (!c) continue; let yy = y; for (let a = 0; a < 6; a++) { const h = (rowh - 1) * cols[px * (SUBS.length + 8) + SUBS.length + a] / c; ctx.fillStyle = AGE_COL[a]; ctx.fillRect(px, yy, 1, h); yy += h; } }
-    y += rowh; ctx.fillStyle = '#333'; ctx.fillText('copies in CHM13 (log)', 2, y + rowh - 2);
+    y += rowh;
     for (let px = 0; px < W; px++) { const c = cnt[px]; if (!c) continue; const lm = cols[px * (SUBS.length + 8) + SUBS.length + 6] / c; const h = Math.min(rowh - 1, (rowh - 1) * lm / 2.4); ctx.fillStyle = '#555'; ctx.fillRect(px, y + rowh - 1 - h, 1, h); }
-    ctx.fillStyle = '#333'; ctx.font = '12px sans-serif'; ctx.fillText(`per-base view: ${sp.desc}` + (bpp > 1 ? ` (${bpp.toFixed(1)} bases per pixel; intensity = fraction present)` : ' (one base per pixel)'), 120, by0 + 8);
+    const labelBox = (txt, yy) => { ctx.font = '11px sans-serif'; const w = ctx.measureText(txt).width + 8; ctx.fillStyle = 'rgba(255,255,255,0.85)'; ctx.fillRect(2, yy - 11, w, 14); ctx.fillStyle = '#222'; ctx.fillText(txt, 6, yy); };
+    SUBS.forEach((sname, j) => labelBox(SUBJ_LAB[sname], by0 + 22 + j * rowh + rowh / 2 + 4));
+    labelBox('age stratum', by0 + 22 + SUBS.length * rowh + rowh / 2 + 4); labelBox('copies in CHM13 (log)', by0 + 22 + (SUBS.length + 1) * rowh + rowh / 2 + 4);
+    ctx.fillStyle = '#333'; ctx.font = '12px sans-serif'; ctx.fillText(`per-base view: ${sp.desc}` + (bpp > 1 ? ` (${bpp.toFixed(1)} bases per pixel; intensity = fraction present)` : ' (one base per pixel)'), 4, by0 + 12);
     colAgg.spot = { sp, pres, mult };
   } else {
     ctx.fillStyle = '#888'; ctx.font = '12px sans-serif';
@@ -308,7 +311,7 @@ let dragging = false, dragX = 0, dragS = 0;
 cv.addEventListener('mousedown', e => { dragging = true; dragX = e.clientX; dragS = view.s; readout.style.display = 'none'; });
 window.addEventListener('mouseup', e => { if (!dragging) return; dragging = false; const dx = e.clientX - dragX; if (Math.abs(dx) < 3) return; const w = view.e - view.s; const ns = Math.max(0, Math.min(chromByName[view.chrom].length - w, dragS - dx * w / cv.clientWidth)); setView(`${view.chrom}:${Math.round(ns)}-${Math.round(ns + w)}`); });
 cv.addEventListener('dblclick', e => zoom(0.5, bpOf(e.offsetX)));
-cv.addEventListener('wheel', e => { e.preventDefault(); zoom(e.deltaY > 0 ? 1.4 : 1 / 1.4, bpOf(e.offsetX)); }, { passive: false });
+cv.addEventListener('wheel', e => { if (!(e.ctrlKey || e.metaKey || e.shiftKey)) return; e.preventDefault(); zoom(e.deltaY > 0 ? 1.4 : 1 / 1.4, bpOf(e.offsetX)); }, { passive: false });
 window.addEventListener('resize', () => draw());
 
 // ---------- heatmap ----------
