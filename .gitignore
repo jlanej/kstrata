@@ -1,6 +1,6 @@
 # large, regenerable inputs and intermediates (scripts/fetch_data.sh, scripts/run_all.sh)
-data/
-out/
+/data/
+/out/
 target/
 # local python environment
 .venv/
