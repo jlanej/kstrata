@@ -1,0 +1,91 @@
+{
+ "hg002": {
+  "segments": 613405,
+  "positions": 256807815,
+  "by_class": {
+   "unique": 506339,
+   "SD": 19829,
+   "ct": 40052,
+   "dhor": 336,
+   "hor": 2022,
+   "hor_active": 11961,
+   "bsat": 1235,
+   "gsat": 184,
+   "hsat2": 9209,
+   "hsat3": 11731,
+   "censat": 1178,
+   "mon": 2429,
+   "hsat1A": 2573,
+   "hsat1B": 331,
+   "rDNA": 3996
+  }
+ },
+ "chimp": {
+  "segments": 2186,
+  "positions": 62997,
+  "by_class": {
+   "unique": 1794,
+   "SD": 57,
+   "ct": 109,
+   "censat": 4,
+   "rDNA": 222
+  }
+ },
+ "bonobo": {
+  "segments": 2163,
+  "positions": 64376,
+  "by_class": {
+   "unique": 1771,
+   "SD": 61,
+   "ct": 105,
+   "censat": 4,
+   "rDNA": 222
+  }
+ },
+ "gorilla": {
+  "segments": 568,
+  "positions": 33204,
+  "by_class": {
+   "unique": 300,
+   "SD": 29,
+   "ct": 13,
+   "censat": 4,
+   "rDNA": 222
+  }
+ },
+ "borang": {
+  "segments": 56,
+  "positions": 2548,
+  "by_class": {
+   "unique": 29,
+   "SD": 22,
+   "censat": 4,
+   "ct": 1
+  }
+ },
+ "sorang": {
+  "segments": 58,
+  "positions": 2499,
+  "by_class": {
+   "unique": 32,
+   "SD": 21,
+   "censat": 4,
+   "ct": 1
+  }
+ },
+ "siamang": {
+  "segments": 48,
+  "positions": 2196,
+  "by_class": {
+   "unique": 22,
+   "SD": 20,
+   "censat": 4,
+   "ct": 2
+  }
+ },
+ "random": {
+  "segments": 0,
+  "positions": 0,
+  "by_class": {}
+ }
+}

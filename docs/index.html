@@ -1,0 +1,368 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>kstrata: exact k-mer strata of the human genome across the apes</title>
+<style>
+:root { --ink:#1b1b1b; --muted:#666; --line:#e3e3e3; --bg:#fbfbf9; --card:#fff; --accent:#4575b4;
+  --a0:#bbbbbb; --a1:#d73027; --a2:#fc8d59; --a3:#fee090; --a4:#91bfdb; --a5:#4575b4; }
+* { box-sizing: border-box; }
+body { margin:0; font: 15px/1.5 -apple-system, "Segoe UI", Helvetica, Arial, sans-serif; color:var(--ink); background:var(--bg); }
+header { padding: 34px 28px 18px; max-width: 1180px; margin: 0 auto; }
+h1 { font-size: 28px; line-height:1.2; margin:0 0 6px; font-weight: 700; letter-spacing:-0.01em; }
+h2 { font-size: 20px; margin: 36px 0 10px; }
+h3 { font-size: 16px; margin: 18px 0 6px; }
+.byline { color: var(--muted); margin-bottom: 14px; }
+.links a { margin-right: 16px; }
+a { color: var(--accent); }
+main { max-width: 1180px; margin: 0 auto; padding: 0 28px 60px; }
+p.lead { font-size: 16px; max-width: 900px; }
+.cards { display:grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin: 14px 0 6px; }
+.card { background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px; }
+.card .n { font-size: 24px; font-weight: 700; }
+.card .l { color: var(--muted); font-size: 13px; }
+.panel { background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 14px; margin: 10px 0; }
+.controls { display:flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 8px; font-size: 14px; }
+.controls select, .controls input, .controls button { font: inherit; padding: 4px 8px; border: 1px solid #ccc; border-radius: 6px; background: #fff; }
+.controls button { cursor: pointer; }
+.controls button:hover { background: #f0f0f0; }
+canvas { display:block; width: 100%; }
+#browser { position: relative; }
+#readout { position:absolute; pointer-events:none; background: rgba(255,255,255,0.96); border:1px solid #bbb; border-radius:6px; padding:8px 10px; font-size:12px; line-height:1.35; display:none; z-index:5; min-width: 230px; box-shadow: 0 2px 8px rgba(0,0,0,0.12); }
+.legend { display:flex; flex-wrap:wrap; gap: 6px 14px; font-size: 12.5px; margin: 6px 0; }
+.legend span.sw { display:inline-block; width: 12px; height: 12px; border-radius: 2px; vertical-align: -2px; margin-right: 4px; }
+.legend label { cursor:pointer; }
+table.tbl { border-collapse: collapse; font-size: 13px; width: 100%; }
+table.tbl th, table.tbl td { padding: 4px 6px; border-bottom: 1px solid var(--line); text-align: right; white-space: nowrap; }
+table.tbl th:first-child, table.tbl td:first-child { text-align: left; }
+table.tbl th { cursor: pointer; background: #f6f6f3; position: sticky; top:0; }
+table.tbl tr.clickable { cursor: pointer; } table.tbl tr.clickable:hover { background: #f3f6fb; }
+.heat td.v { color: #fff; text-shadow: 0 0 2px rgba(0,0,0,0.5); }
+.small { font-size: 13px; color: var(--muted); }
+.two { display:grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+@media (max-width: 900px) { .two { grid-template-columns: 1fr; } }
+svg text { font-family: inherit; }
+footer { color: var(--muted); font-size: 13px; border-top: 1px solid var(--line); padding-top: 14px; margin-top: 40px; }
+.note { background:#fff8e6; border:1px solid #f0d78c; border-radius:6px; padding: 8px 12px; font-size: 13px; }
+kbd { font: 12px monospace; background:#eee; padding: 1px 4px; border-radius: 3px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Exact k-mer strata of the human genome across the apes</h1>
+  <div class="byline">Claude Fable 5.1 (Anthropic) and J. Lane · September 2026 · an alignment-free age for every base of T2T-CHM13</div>
+  <div class="links"><a href="kstrata_report.pdf">PDF report</a> <a href="https://github.com/jlanej/kstrata">code, tables and full write-up (GitHub)</a></div>
+</header>
+<main>
+<p class="lead">For every base of the complete human genome T2T-CHM13, we asked in which other genomes the exact 31-letter word (k-mer) starting at that base still exists: a second human (HG002, both haplotypes), chimpanzee, bonobo, gorilla, two orangutans and siamang, all complete assemblies. No alignment is involved, so the answer exists inside the centromeres and satellite arrays where conservation scores do not. The deepest lineage that still carries a k-mer dates it, like the deepest rock layer that holds a fossil. This page lets you browse those strata along every chromosome, down to single bases in selected regions.</p>
+
+<div class="cards" id="cards"></div>
+<p class="small">Whole-genome fractions of CHM13 31-mers. "Human only" = present in HG002 and in no ape; "CHM13 only" = in no other genome.</p>
+
+<h2>Browse the strata</h2>
+<div class="panel" id="browser">
+  <div class="controls">
+    <label>chromosome <select id="chrSel"></select></label>
+    <input id="posIn" size="26" placeholder="chr1:121,000,000-127,000,000" title="type a region and press Enter">
+    <button id="goBtn">go</button>
+    <button id="zoomIn" title="zoom in (or scroll)">+</button>
+    <button id="zoomOut" title="zoom out">&minus;</button>
+    <button id="wholeBtn">whole chromosome</button>
+    <label>jump to <select id="jumpSel"><option value="">a centromere or a spotlight…</option></select></label>
+    <span id="status" class="small"></span>
+  </div>
+  <canvas id="overview" height="26"></canvas>
+  <canvas id="cv" height="430"></canvas>
+  <div id="readout"></div>
+  <div class="legend" id="legend"></div>
+  <p class="small">Drag to pan, scroll to zoom, hover for values. Windows are 100 kb, 10 kb or 1 kb depending on zoom. In the spotlight regions (grey-bordered bar above the annotation), zooming below 100 kb shows every base: one row per genome, filled where the 31-mer starting at that base is present, and the age stratum and copy number of the k-mer underneath. Positions in the <a href="https://github.com/marbl/CHM13" target="_blank">CHM13v2.0</a> coordinate system; the annotation bar shows the censat v2.1 classes (reds alpha-satellite, greens HSat, blues beta/gamma satellite, purple other) and segmental duplications (yellow).</p>
+</div>
+
+<h2>How much of each region class is shared, and how old it is</h2>
+<div class="two">
+  <div class="panel"><h3>Fraction of CHM13 31-mers present in each genome (%)</h3><div id="heat"></div></div>
+  <div class="panel"><h3>Age strata of the 31-mers (% of positions)</h3><div id="agesTbl"></div></div>
+</div>
+
+<h2>The scale of conservation: sharing as a function of k</h2>
+<div class="panel">
+  <div class="controls"><label>region class <select id="ladderClass"></select></label><span class="small">Every eighth position of CHM13 (k = 31 at full resolution). The grey dashed line is a uniform random 3.1 Gb genome: chance sharing, 76% at k = 16, 0.1% at k = 21, none above.</span></div>
+  <div id="ladder"></div>
+</div>
+
+<h2>Every active centromere array</h2>
+<div class="panel">
+  <p class="small">Fraction of the array's 31-mers present in each genome, computed exactly from the base-resolution arrays. Click a row to browse it. Gorilla often shows the highest sharing; read that as repertoire size (the gorilla assembly is the largest, with the largest alpha-satellite repertoire), not as phylogeny.</p>
+  <div id="arrays"></div>
+</div>
+
+<h2>Kilobases identical between human and gibbon</h2>
+<div class="panel">
+  <p class="small">Stretches of at least 1,001 bases that are letter-for-letter identical between CHM13 and the siamang assembly (found as runs of shared 1001-mers on the 1/8 sample; the true segment may be up to 8 bases longer at each end). Click a row to view the stretch and 3 kb of flanking sequence base by base.</p>
+  <div id="ucs"></div>
+</div>
+
+<h2>Figures from the report</h2>
+<div class="panel">
+  <p class="small">The idea (top), the strata across five centromeres at 10 kb resolution, the genome-wide view at 100 kb, and sharing as a function of k by region class. Click any figure to open it full size; all figures and the tables behind them are in the <a href="https://github.com/jlanej/kstrata">repository</a>.</p>
+  <a href="fig/fig_concept.png"><img src="fig/fig_concept.png" style="width:100%;max-width:1000px" alt="concept"></a>
+  <a href="fig/fig_centromere_strata_k31.png"><img src="fig/fig_centromere_strata_k31.png" style="width:100%;max-width:1000px" alt="centromere strata"></a>
+  <a href="fig/fig_genome_strata_k31.png"><img src="fig/fig_genome_strata_k31.png" style="width:100%;max-width:1000px" alt="genome-wide strata"></a>
+  <a href="fig/fig_multik_sharing.png"><img src="fig/fig_multik_sharing.png" style="width:100%;max-width:1000px" alt="sharing against k"></a>
+</div>
+
+<h2>In brief</h2>
+<div class="panel">
+<p><b>Method.</b> The tool <i>kstrata</i> converts each assembly to base codes, then, for each partition of the k-mer key space, sorts the query's (k-mer, position) pairs and merges them with the sorted, deduplicated k-mers of each subject genome to set one presence bit per subject; the run lengths give the multiplicity in the query. Keys are exact for k ≤ 32 and a 61-bit rolling hash above. A 3.1 Gb query against 6 Gb subjects runs in about ten gigabytes of memory; every run here took 8 to 13 minutes on a laptop.</p>
+<p><b>Validation.</b> Every output byte matched brute-force k-mer sets on synthetic genomes. On 5 Mb of chr20 aligned to chimpanzee, every 31-mer the alignment shows as identical is reported present (3,173,630 of 3,173,630). A random genome shares no k-mer above k = 21.</p>
+<p><b>Reading the strata.</b> Presence is presence anywhere in the other genome, not orthology; absence can be mutation, deletion, an unassembled region or an assembly error, so inside satellites the ape-absence rates are upper bounds on turnover. The ape assemblies are haploid representations of diploid genomes. Full methods, tables and limitations are in the <a href="https://github.com/jlanej/kstrata">repository</a> and the <a href="kstrata_report.pdf">report</a>.</p>
+</div>
+
+<footer>Claude Fable 5.1 (Anthropic) and J. Lane, 2026. Assemblies: T2T-CHM13v2.0, T2T-HG002 v1.1, and the primary assemblies of mPanTro3, mPanPan1, mGorGor1, mPonPyg2, mPonAbe1 and mSymSyn1 (Yoo et al., Nature 2025). Annotation: censat v2.1 (Altemose et al. 2022), SDs (Vollger et al. 2022). MIT licence.</footer>
+</main>
+<script>
+(async function () {
+const AGE_COL = ['#bbbbbb', '#d73027', '#fc8d59', '#fee090', '#91bfdb', '#4575b4'];
+const SUBJ_COL = { hg002: '#1f77b4', chimp: '#ff7f0e', bonobo: '#ffbb78', gorilla: '#2ca02c', borang: '#ff9896', sorang: '#d62728', siamang: '#9467bd' };
+const SUBJ_LAB = { hg002: 'HG002 (human)', chimp: 'chimpanzee', bonobo: 'bonobo', gorilla: 'gorilla', borang: 'Bornean orangutan', sorang: 'Sumatran orangutan', siamang: 'siamang', random: 'random genome' };
+const CLASS_COL = { ct: '#c8c8c8', mon: '#f4a582', dhor: '#d6604d', hor: '#b2182b', hor_active: '#67001f', bsat: '#4393c3', gsat: '#2166ac', hsat1A: '#a6dba0', hsat1B: '#5aae61', hsat2: '#1b7837', hsat3: '#00441b', censat: '#9970ab', rDNA: '#c994c7', SD: '#fee08b', unique: '#ffffff' };
+const CLASS_LAB = { unique: 'non-repeat, non-SD', SD: 'segmental duplication', ct: 'centromere transition', mon: 'monomeric alpha-satellite', dhor: 'diverged HOR', hor: 'inactive HOR', hor_active: 'active HOR', bsat: 'beta satellite', gsat: 'gamma satellite', hsat1A: 'HSat1A', hsat1B: 'HSat1B', hsat2: 'HSat2', hsat3: 'HSat3', censat: 'other censat', rDNA: 'rDNA', ALL: 'whole genome' };
+const fmt = n => n.toLocaleString('en-US');
+const pct = (a, b, d = 1) => b ? (100 * a / b).toFixed(d) : '–';
+
+async function fetchBin(url, ctor) {
+  const r = await fetch(url); if (!r.ok) throw new Error(url + ' ' + r.status);
+  let buf = await r.arrayBuffer(); const u = new Uint8Array(buf);
+  if (u.length > 2 && u[0] === 0x1f && u[1] === 0x8b) {
+    if (!window.DecompressionStream) throw new Error('This browser cannot decompress the data files; please use a recent Chrome, Safari or Firefox.');
+    buf = await new Response(new Blob([buf]).stream().pipeThrough(new DecompressionStream('gzip'))).arrayBuffer();
+  }
+  return new ctor(buf);
+}
+let meta;
+try { const r = await fetch('data/meta.json'); if (!r.ok) throw new Error(r.status); meta = await r.json(); }
+catch (e) { document.getElementById('cards').innerHTML = '<div class="note">The data files (docs/data/) are missing from this copy of the site; run scripts/export_site.py after scripts/rebuild_site_data.sh to build them.</div>'; return; }
+const SUBS = meta.subjects, NC = 15;
+const chroms = meta.chroms; const chromByName = Object.fromEntries(chroms.map(c => [c.name, c]));
+
+// ---------- headline cards ----------
+const all = meta.k31.ALL, v = all.valid_positions;
+const cards = [['in chimpanzee', pct(all.shared_chimp, v)], ['in gorilla', pct(all.shared_gorilla, v)], ['in orangutan', pct(all.shared_sorang, v)], ['in siamang', pct(all.shared_siamang, v)],
+  ['in HG002', pct(all.shared_hg002, v)], ['human only', pct(all.human_specific, v)], ['CHM13 only', pct(all.chm13_only, v)], ['single copy in CHM13', pct(all.unique_in_query, v)]];
+document.getElementById('cards').innerHTML = cards.map(([l, n]) => `<div class="card"><div class="n">${n}%</div><div class="l">${l}</div></div>`).join('');
+
+// ---------- data cache ----------
+const cache = {};
+async function level(chrom, lev) {
+  const key = lev + '_' + chrom; if (cache[key]) return cache[key];
+  if (lev === '100k') {
+    if (!cache.w100) cache.w100 = await fetchBin('data/w100k.bin.gz', Uint32Array);
+    const c = chromByName[chrom]; return (cache[key] = cache.w100.subarray(c.off100k * NC, (c.off100k + c.n100k) * NC));
+  }
+  return (cache[key] = await fetchBin(`data/w${lev}_${chrom}.bin.gz`, Uint16Array));
+}
+async function annot(chrom) { const key = 'a_' + chrom; return cache[key] || (cache[key] = await (await fetch(`data/annot_${chrom}.json`)).json()); }
+async function spot(id) { const key = 's_' + id; return cache[key] || (cache[key] = await fetchBin(`data/spot_${id}.bin.gz`, Uint8Array)); }
+const ucs = await (await fetch('data/ucs.json')).json().catch(() => []);
+const spots = meta.spots.concat(ucs.map(u => ({ id: u.spot, desc: `identical ${u.len} bp with siamang, ${u.chrom}:${fmt(u.start)}`, chrom: u.chrom, start: u.spot_start, end: u.spot_end, ucs: true })));
+
+// ---------- browser state ----------
+const cv = document.getElementById('cv'), ctx = cv.getContext('2d'), ov = document.getElementById('overview'), octx = ov.getContext('2d');
+const readout = document.getElementById('readout'), status = document.getElementById('status');
+let view = { chrom: 'chr1', s: 0, e: 0 }; let shown = new Set(SUBS); let showUniq = true;
+let colAgg = null; // per-pixel aggregate for hover
+const chrSel = document.getElementById('chrSel'); chroms.forEach(c => { const o = document.createElement('option'); o.value = c.name; o.textContent = c.name; chrSel.appendChild(o); });
+const jumpSel = document.getElementById('jumpSel');
+meta.arrays.forEach(a => { const o = document.createElement('option'); o.value = `${a.chrom}:${Math.max(a.start - 1500000, 0)}-${a.end + 1500000}`; o.textContent = `centromere ${a.chrom} (active array ${(a.start / 1e6).toFixed(1)}–${(a.end / 1e6).toFixed(1)} Mb)`; jumpSel.appendChild(o); });
+meta.spots.forEach(sp => { const o = document.createElement('option'); o.value = `${sp.chrom}:${sp.start}-${sp.end}`; o.textContent = 'spotlight: ' + sp.desc; jumpSel.appendChild(o); });
+jumpSel.onchange = () => { if (jumpSel.value) { setView(jumpSel.value); jumpSel.value = ''; } };
+function legendHtml() {
+  let h = '<b>age strata</b> ' + meta.ages.map((a, i) => `<span><span class="sw" style="background:${AGE_COL[i]}"></span>${a}</span>`).join('');
+  h += '<br><b>present in</b> ' + SUBS.map(s => `<label><input type="checkbox" data-s="${s}" ${shown.has(s) ? 'checked' : ''}> <span class="sw" style="background:${SUBJ_COL[s]}"></span>${SUBJ_LAB[s]}</label>`).join('');
+  h += ` <label><input type="checkbox" id="uniqChk" ${showUniq ? 'checked' : ''}> <span class="sw" style="background:#444"></span>single-copy in CHM13 (dashed)</label>`;
+  return h;
+}
+const legend = document.getElementById('legend'); legend.innerHTML = legendHtml();
+legend.addEventListener('change', e => { const s = e.target.dataset.s; if (s) { e.target.checked ? shown.add(s) : shown.delete(s); } if (e.target.id === 'uniqChk') showUniq = e.target.checked; draw(); });
+
+function parseRegion(str) {
+  const m = str.replace(/,/g, '').match(/^\s*(chr[0-9XY]+)\s*(?::\s*(\d+)\s*-\s*(\d+))?\s*$/i); if (!m) return null;
+  const c = chromByName[m[1]]; if (!c) return null;
+  let s = m[2] ? +m[2] : 0, e = m[3] ? +m[3] : c.length; s = Math.max(0, Math.min(s, c.length - 1000)); e = Math.max(s + 1000, Math.min(e, c.length));
+  return { chrom: c.name, s, e };
+}
+function setView(str) { const r = parseRegion(str); if (!r) { status.textContent = 'could not read that region'; return; } view = r; chrSel.value = r.chrom; location.hash = `${r.chrom}:${r.s}-${r.e}`; draw(); }
+document.getElementById('goBtn').onclick = () => setView(document.getElementById('posIn').value);
+document.getElementById('posIn').addEventListener('keydown', e => { if (e.key === 'Enter') setView(e.target.value); });
+chrSel.onchange = () => setView(chrSel.value);
+document.getElementById('wholeBtn').onclick = () => setView(view.chrom);
+function zoom(f, cx) { const w = view.e - view.s; const c = cx == null ? (view.s + view.e) / 2 : cx; let nw = Math.max(200, Math.min(chromByName[view.chrom].length, w * f)); let s = Math.round(c - (c - view.s) * nw / w); setView(`${view.chrom}:${Math.max(0, s)}-${Math.max(0, s) + Math.round(nw)}`); }
+document.getElementById('zoomIn').onclick = () => zoom(0.5); document.getElementById('zoomOut').onclick = () => zoom(2);
+window.addEventListener('hashchange', () => { const h = decodeURIComponent(location.hash.slice(1)); if (h && parseRegion(h)) { const r = parseRegion(h); if (r.chrom !== view.chrom || r.s !== view.s || r.e !== view.e) { view = r; chrSel.value = r.chrom; draw(); } } });
+
+// ---------- drawing ----------
+const H = { age: [8, 130], pres: [150, 270], spotbar: [278, 288], annot: [292, 306], base: [318, 430] };
+let drawing = false, queued = false;
+async function draw() {
+  if (drawing) { queued = true; return; } drawing = true;
+  try { await drawInner(); } catch (err) { status.textContent = 'error: ' + err.message; console.error(err); }
+  drawing = false; if (queued) { queued = false; draw(); }
+}
+function bpOf(x) { return view.s + x * (view.e - view.s) / cv.clientWidth; }
+async function drawInner() {
+  const W = cv.clientWidth; const dpr = window.devicePixelRatio || 1; cv.width = W * dpr; cv.height = 430 * dpr; ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  const span = view.e - view.s; const lev = span > 50e6 ? '100k' : span > 5e6 ? '10k' : '1k'; const wsz = { '100k': 100000, '10k': 10000, '1k': 1000 }[lev];
+  status.textContent = `${view.chrom}:${fmt(view.s)}-${fmt(view.e)} (${(span / 1e6).toFixed(3)} Mb, ${lev.replace('k', ' kb')} windows) loading…`;
+  const arr = await level(view.chrom, lev); const an = await annot(view.chrom);
+  document.getElementById('posIn').value = `${view.chrom}:${fmt(view.s)}-${fmt(view.e)}`;
+  ctx.clearRect(0, 0, W, 430);
+  // aggregate windows into pixel columns
+  const agg = new Float64Array(W * NC); const bpp = span / W;
+  const i0 = Math.max(0, Math.floor(view.s / wsz)), i1 = Math.min(arr.length / NC, Math.ceil(view.e / wsz));
+  for (let i = i0; i < i1; i++) {
+    const ws = i * wsz, we = ws + wsz; const x0 = Math.max(0, (ws - view.s) / bpp), x1 = Math.min(W, (we - view.s) / bpp); if (x1 <= x0) continue;
+    const px0 = Math.floor(x0), px1 = Math.min(W - 1, Math.ceil(x1) - 1);
+    for (let px = px0; px <= px1; px++) {
+      const f = Math.max(0, Math.min(x1, px + 1) - Math.max(x0, px)); if (f <= 0) continue;
+      for (let c = 0; c < NC; c++) agg[px * NC + c] += arr[i * NC + c] * f;
+    }
+  }
+  colAgg = { agg, wsz, lev };
+  // age composition (stacked)
+  const [ay0, ay1] = H.age; const ah = ay1 - ay0;
+  for (let px = 0; px < W; px++) {
+    const val = agg[px * NC]; if (!val) continue; let y = ay1;
+    for (let a = 0; a < 6; a++) { const h = ah * agg[px * NC + 9 + a] / val; ctx.fillStyle = AGE_COL[a]; ctx.fillRect(px, y - h, 1, h); y -= h; }
+  }
+  ctx.fillStyle = '#333'; ctx.font = '12px sans-serif'; ctx.fillText('age stratum of the 31-mers (share of each window)', 4, ay0 - 1 + 10);
+  // presence lines
+  const [py0, py1] = H.pres; const ph = py1 - py0; ctx.strokeStyle = '#eee'; ctx.lineWidth = 1;
+  for (const g of [0, 0.5, 1]) { ctx.beginPath(); ctx.moveTo(0, py1 - g * ph); ctx.lineTo(W, py1 - g * ph); ctx.stroke(); }
+  ctx.fillStyle = '#333'; ctx.fillText('fraction of 31-mers present (0–1)', 4, py0 + 10);
+  const drawLine = (col, colour, dash) => { ctx.strokeStyle = colour; ctx.lineWidth = 1.2; ctx.setLineDash(dash || []); ctx.beginPath(); let pen = false;
+    for (let px = 0; px < W; px++) { const val = agg[px * NC]; if (!val) { pen = false; continue; } const y = py1 - ph * agg[px * NC + col] / val; if (!pen) { ctx.moveTo(px, y); pen = true; } else ctx.lineTo(px, y); } ctx.stroke(); ctx.setLineDash([]); };
+  SUBS.forEach((s, j) => { if (shown.has(s)) drawLine(2 + j, SUBJ_COL[s]); });
+  if (showUniq) drawLine(1, '#444', [3, 3]);
+  // spotlight bar
+  const [sy0, sy1] = H.spotbar;
+  for (const sp of spots) if (sp.chrom === view.chrom && sp.end > view.s && sp.start < view.e) { const x0 = Math.max(0, (sp.start - view.s) / bpp), x1 = Math.min(W, (sp.end - view.s) / bpp); ctx.fillStyle = sp.ucs ? '#4575b4' : '#888'; ctx.fillRect(x0, sy0, Math.max(1.5, x1 - x0), sy1 - sy0); }
+  ctx.fillStyle = '#666'; ctx.font = '11px sans-serif'; ctx.fillText('spotlights (per-base data)', W - 150, sy1);
+  // annotation
+  const [ny0, ny1] = H.annot; ctx.fillStyle = '#f4f4f4'; ctx.fillRect(0, ny0, W, ny1 - ny0);
+  for (const [s, e] of an.sd) if (e > view.s && s < view.e) { ctx.fillStyle = CLASS_COL.SD; ctx.fillRect(Math.max(0, (s - view.s) / bpp), ny0, Math.max(1, (Math.min(e, view.e) - Math.max(s, view.s)) / bpp), ny1 - ny0); }
+  for (const [s, e, c] of an.censat) if (e > view.s && s < view.e) { ctx.fillStyle = CLASS_COL[meta.classes[c]] || '#000'; ctx.fillRect(Math.max(0, (s - view.s) / bpp), ny0, Math.max(1, (Math.min(e, view.e) - Math.max(s, view.s)) / bpp), ny1 - ny0); }
+  ctx.fillStyle = '#666'; ctx.fillText('annotation', 4, ny1 + 11);
+  // scale bar
+  ctx.fillStyle = '#333'; ctx.font = '11px sans-serif';
+  const nice = [1e3, 2e3, 5e3, 1e4, 2e4, 5e4, 1e5, 2e5, 5e5, 1e6, 2e6, 5e6, 1e7, 2e7, 5e7].find(n => n / bpp >= 80) || 5e7;
+  ctx.fillRect(W - 12 - nice / bpp, ny1 + 6, nice / bpp, 2); ctx.fillText(nice >= 1e6 ? (nice / 1e6) + ' Mb' : (nice / 1e3) + ' kb', W - 12 - nice / bpp, ny1 + 20);
+  // per-base panel
+  const [by0, by1] = H.base; ctx.fillStyle = '#666';
+  const sp = span <= 120000 ? spots.find(p => p.chrom === view.chrom && p.start <= view.s && p.end >= view.e) : null;
+  if (sp) {
+    const bytes = await spot(sp.id); const n = sp.end - sp.start; const pres = bytes.subarray(0, n), mult = bytes.subarray(n, 2 * n);
+    const rowh = (by1 - by0 - 24) / (SUBS.length + 2);
+    const cols = new Float32Array(W * (SUBS.length + 8)); const cnt = new Float32Array(W);
+    for (let b = Math.max(view.s, sp.start); b < Math.min(view.e, sp.end); b++) {
+      const px = Math.floor((b - view.s) / bpp); if (px < 0 || px >= W) continue; const p = pres[b - sp.start]; const m = mult[b - sp.start]; if (!m) continue; cnt[px]++;
+      for (let j = 0; j < SUBS.length; j++) if ((p >> j) & 1) cols[px * (SUBS.length + 8) + j]++;
+      let a = 0; if (p & 1) a = 1; if (p & 6) a = 2; if (p & 8) a = 3; if (p & 48) a = 4; if (p & 64) a = 5; cols[px * (SUBS.length + 8) + SUBS.length + a]++;
+      cols[px * (SUBS.length + 8) + SUBS.length + 6] += Math.log10(m); cols[px * (SUBS.length + 8) + SUBS.length + 7] = 1;
+    }
+    for (let j = 0; j < SUBS.length; j++) { const y = by0 + 12 + j * rowh; ctx.fillStyle = '#333'; ctx.font = '10px sans-serif'; ctx.fillText(SUBJ_LAB[SUBS[j]], 2, y + rowh - 2);
+      for (let px = 0; px < W; px++) { const c = cnt[px]; if (!c) continue; const f = cols[px * (SUBS.length + 8) + j] / c; ctx.fillStyle = SUBJ_COL[SUBS[j]]; ctx.globalAlpha = f; ctx.fillRect(px, y, 1, rowh - 1); ctx.globalAlpha = 1; } }
+    let y = by0 + 12 + SUBS.length * rowh; ctx.fillStyle = '#333'; ctx.fillText('age stratum', 2, y + rowh - 2);
+    for (let px = 0; px < W; px++) { const c = cnt[px]; if (!c) continue; let yy = y; for (let a = 0; a < 6; a++) { const h = (rowh - 1) * cols[px * (SUBS.length + 8) + SUBS.length + a] / c; ctx.fillStyle = AGE_COL[a]; ctx.fillRect(px, yy, 1, h); yy += h; } }
+    y += rowh; ctx.fillStyle = '#333'; ctx.fillText('copies in CHM13 (log)', 2, y + rowh - 2);
+    for (let px = 0; px < W; px++) { const c = cnt[px]; if (!c) continue; const lm = cols[px * (SUBS.length + 8) + SUBS.length + 6] / c; const h = Math.min(rowh - 1, (rowh - 1) * lm / 2.4); ctx.fillStyle = '#555'; ctx.fillRect(px, y + rowh - 1 - h, 1, h); }
+    ctx.fillStyle = '#333'; ctx.font = '12px sans-serif'; ctx.fillText(`per-base view: ${sp.desc}` + (bpp > 1 ? ` (${bpp.toFixed(1)} bases per pixel; intensity = fraction present)` : ' (one base per pixel)'), 120, by0 + 8);
+    colAgg.spot = { sp, pres, mult };
+  } else {
+    ctx.fillStyle = '#888'; ctx.font = '12px sans-serif';
+    ctx.fillText(span <= 120000 ? 'no per-base data here: per-base views exist in the spotlight regions (grey bars above)' : 'zoom into a spotlight region (below 120 kb) for the per-base view', 4, by0 + 14);
+  }
+  status.textContent = `${view.chrom}:${fmt(view.s)}-${fmt(view.e)} (${(span / 1e6).toFixed(3)} Mb, ${lev.replace('k', ' kb')} windows)`;
+  drawOverview();
+}
+async function drawOverview() {
+  const W = ov.clientWidth, dpr = window.devicePixelRatio || 1; ov.width = W * dpr; ov.height = 26 * dpr; octx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  const c = chromByName[view.chrom]; const arr = await level(view.chrom, '100k'); const n = c.n100k; octx.clearRect(0, 0, W, 26);
+  for (let px = 0; px < W; px++) { const i = Math.min(n - 1, Math.floor(px * n / W)); const val = arr[i * NC]; if (!val) continue; let y = 22;
+    for (let a = 0; a < 6; a++) { const h = 18 * arr[i * NC + 9 + a] / val; octx.fillStyle = AGE_COL[a]; octx.fillRect(px, y - h, 1, h); y -= h; } }
+  octx.strokeStyle = '#000'; octx.lineWidth = 1.5; octx.strokeRect(view.s / c.length * W, 2, Math.max(2, (view.e - view.s) / c.length * W), 21);
+}
+ov.addEventListener('click', e => { const c = chromByName[view.chrom]; const bp = e.offsetX / ov.clientWidth * c.length; const w = view.e - view.s; setView(`${view.chrom}:${Math.round(bp - w / 2)}-${Math.round(bp + w / 2)}`); });
+// hover
+cv.addEventListener('mousemove', e => {
+  if (!colAgg || dragging) return; const px = Math.floor(e.offsetX); const bp = Math.floor(bpOf(e.offsetX)); const a = colAgg.agg; const val = a[px * NC];
+  let h = `<b>${view.chrom}:${fmt(bp)}</b><br>`;
+  if (colAgg.spot && e.offsetY >= H.base[0]) { const { sp, pres, mult } = colAgg.spot; const i = bp - sp.start; if (i >= 0 && i < sp.end - sp.start) { const p = pres[i], m = mult[i]; h += m ? `31-mer at this base: ${m} cop${m === 1 ? 'y' : 'ies'} in CHM13 (${m === 255 ? '≥255' : m})<br>present in: ${SUBS.filter((s, j) => (p >> j) & 1).map(s => SUBJ_LAB[s]).join(', ') || 'no other genome'}` : 'no valid 31-mer (N or contig end)'; } }
+  else if (val) { h += `${colAgg.wsz / 1000} kb window(s), ${fmt(Math.round(val))} bases<br>`;
+    h += SUBS.map((s, j) => `<span style="color:${SUBJ_COL[s]}">■</span> ${SUBJ_LAB[s]}: ${pct(a[px * NC + 2 + j], val)}%`).join('<br>') + `<br>■ single-copy: ${pct(a[px * NC + 1], val)}%<br><b>age:</b> ` + meta.ages.map((n, k) => `<span style="color:${AGE_COL[k]}">■</span>${pct(a[px * NC + 9 + k], val, 0)}%`).join(' '); }
+  else h += 'no data';
+  readout.innerHTML = h; readout.style.display = 'block'; readout.style.left = Math.min(e.offsetX + 16, cv.clientWidth - 260) + 'px'; readout.style.top = (e.offsetY + 40) + 'px';
+});
+cv.addEventListener('mouseleave', () => { readout.style.display = 'none'; });
+let dragging = false, dragX = 0, dragS = 0;
+cv.addEventListener('mousedown', e => { dragging = true; dragX = e.clientX; dragS = view.s; readout.style.display = 'none'; });
+window.addEventListener('mouseup', e => { if (!dragging) return; dragging = false; const dx = e.clientX - dragX; if (Math.abs(dx) < 3) return; const w = view.e - view.s; const ns = Math.max(0, Math.min(chromByName[view.chrom].length - w, dragS - dx * w / cv.clientWidth)); setView(`${view.chrom}:${Math.round(ns)}-${Math.round(ns + w)}`); });
+cv.addEventListener('dblclick', e => zoom(0.5, bpOf(e.offsetX)));
+cv.addEventListener('wheel', e => { e.preventDefault(); zoom(e.deltaY > 0 ? 1.4 : 1 / 1.4, bpOf(e.offsetX)); }, { passive: false });
+window.addEventListener('resize', () => draw());
+
+// ---------- heatmap ----------
+const CLS = meta.classes.filter(c => meta.k31[c] && meta.k31[c].valid_positions > 0).concat(['ALL']);
+const showSubs = ['hg002', 'chimp', 'bonobo', 'gorilla', 'borang', 'sorang', 'siamang'];
+function viridis(t) { const s = [[68, 1, 84], [59, 82, 139], [33, 145, 140], [94, 201, 98], [253, 231, 37]]; const x = Math.max(0, Math.min(1, t)) * 4; const i = Math.min(3, Math.floor(x)); const f = x - i; const c = s[i].map((v, k) => Math.round(v + (s[i + 1][k] - v) * f)); return `rgb(${c.join(',')})`; }
+let h = '<table class="tbl heat"><tr><th>region class</th><th>Mb</th>' + showSubs.map(s => `<th>${SUBJ_LAB[s].replace(' (human)', '')}</th>`).join('') + '<th>human only</th><th>CHM13 only</th><th>single copy</th></tr>';
+for (const c of CLS) { const r = meta.k31[c], vv = r.valid_positions; h += `<tr><td>${CLASS_LAB[c] || c}</td><td>${(vv / 1e6).toFixed(1)}</td>` + showSubs.map(s => { const f = r['shared_' + s] / vv; return `<td class="v" style="background:${viridis(f)}">${(100 * f).toFixed(0)}</td>`; }).join('') + `<td>${pct(r.human_specific, vv)}</td><td>${pct(r.chm13_only, vv)}</td><td>${pct(r.unique_in_query, vv)}</td></tr>`; }
+document.getElementById('heat').innerHTML = h + '</table>';
+// ages table
+const AT = meta.ages_table; const ageKeys = ['chm13_only', 'human_specific', 'pan', 'gorilla', 'pongo', 'hylobatid'];
+h = '<table class="tbl"><tr><th>region class</th>' + meta.ages.map((a, i) => `<th><span class="sw" style="background:${AGE_COL[i]};display:inline-block;width:10px;height:10px;border-radius:2px"></span> ${a}</th>`).join('') + '</tr>';
+for (const c of CLS) { const r = AT[c]; if (!r) continue; h += `<tr><td>${CLASS_LAB[c] || c}</td>` + ageKeys.map(k => `<td>${pct(r[k], r.positions)}</td>`).join('') + '</tr>'; }
+document.getElementById('agesTbl').innerHTML = h + '</table>';
+
+// ---------- ladder chart ----------
+const ks = Object.keys(meta.ladder).map(Number).sort((a, b) => a - b);
+const lc = document.getElementById('ladderClass'); CLS.forEach(c => { const o = document.createElement('option'); o.value = c; o.textContent = CLASS_LAB[c] || c; lc.appendChild(o); }); lc.value = 'hor_active';
+function drawLadder() {
+  const c = lc.value; const Wd = 860, Hd = 320, L = 50, R = 170, T = 16, B = 40; const lx = k => L + (Math.log10(k) - Math.log10(16)) / (Math.log10(2001) - Math.log10(16)) * (Wd - L - R); const ly = f => T + (1 - f) * (Hd - T - B);
+  let s = `<svg viewBox="0 0 ${Wd} ${Hd}" style="width:100%;max-width:${Wd}px;font-size:12px">`;
+  for (const g of [0, 0.25, 0.5, 0.75, 1]) s += `<line x1="${L}" x2="${Wd - R}" y1="${ly(g)}" y2="${ly(g)}" stroke="#eee"/><text x="${L - 6}" y="${ly(g) + 4}" text-anchor="end">${g}</text>`;
+  for (const k of ks) s += `<text x="${lx(k)}" y="${Hd - B + 16}" text-anchor="middle">${k}</text>`;
+  s += `<text x="${(L + Wd - R) / 2}" y="${Hd - 6}" text-anchor="middle">k (log scale)</text><text transform="translate(14 ${Hd / 2}) rotate(-90)" text-anchor="middle">fraction of CHM13 k-mers present</text>`;
+  const series = SUBS.concat(['random']);
+  series.forEach((sub, i) => { const pts = ks.map(k => { const r = meta.ladder[k][c]; const key = 'shared_' + sub; return r && key in r ? [lx(k), ly(r[key] / r.valid_positions)] : null; }).filter(Boolean);
+    if (!pts.length) return; const col = sub === 'random' ? '#888' : SUBJ_COL[sub];
+    s += `<polyline fill="none" stroke="${col}" stroke-width="${sub === 'random' ? 1.2 : 2}" ${sub === 'random' ? 'stroke-dasharray="5 4"' : ''} points="${pts.map(p => p.join(',')).join(' ')}"/>`;
+    pts.forEach(p => s += `<circle cx="${p[0]}" cy="${p[1]}" r="2.5" fill="${col}"/>`);
+    s += `<rect x="${Wd - R + 10}" y="${T + i * 18}" width="12" height="12" fill="${col}"/><text x="${Wd - R + 27}" y="${T + i * 18 + 10}">${SUBJ_LAB[sub]}</text>`; });
+  document.getElementById('ladder').innerHTML = s + '</svg>';
+}
+lc.onchange = drawLadder; drawLadder();
+
+// ---------- arrays table ----------
+function sortable(container, rows, cols, onClick) {
+  let sortKey = null, asc = true;
+  const render = () => { const r = rows.slice(); if (sortKey !== null) r.sort((a, b) => (a[sortKey] > b[sortKey] ? 1 : a[sortKey] < b[sortKey] ? -1 : 0) * (asc ? 1 : -1));
+    container.innerHTML = '<table class="tbl"><tr>' + cols.map((c, i) => `<th data-i="${i}">${c}${sortKey === i ? (asc ? ' ▲' : ' ▼') : ''}</th>`).join('') + '</tr>' + r.map(row => `<tr class="clickable" data-key="${row._key}">` + row.slice(0, cols.length).map(v => `<td>${typeof v === 'number' ? (Number.isInteger(v) ? fmt(v) : v.toFixed(1)) : v}</td>`).join('') + '</tr>').join('') + '</table>';
+    container.querySelectorAll('th').forEach(th => th.onclick = () => { const i = +th.dataset.i; asc = sortKey === i ? !asc : true; sortKey = i; render(); });
+    container.querySelectorAll('tr.clickable').forEach(tr => tr.onclick = () => onClick(tr.dataset.key)); };
+  render();
+}
+const arrRows = meta.arrays.map(a => { const r = [`${a.chrom}:${(a.start / 1e6).toFixed(2)}-${(a.end / 1e6).toFixed(2)} Mb`, a.n / 1e6, a.single_copy_pct].concat(showSubs.map(s => a.shared_pct[s])); r._key = `${a.chrom}:${Math.max(0, a.start - 200000)}-${a.end + 200000}`; return r; });
+sortable(document.getElementById('arrays'), arrRows, ['active HOR array', 'Mb', 'single copy %'].concat(showSubs.map(s => SUBJ_LAB[s].replace(' (human)', '') + ' %')), key => { setView(key); document.getElementById('browser').scrollIntoView({ behavior: 'smooth' }); });
+// ucs table
+if (ucs.length) { const rows = ucs.map(u => { const r = [u.chrom, u.start, u.end, u.len, u.in.filter(x => x !== 'siamang').map(x => SUBJ_LAB[x]).join(', ') || '–']; r._key = `${u.chrom}:${u.spot_start}-${u.spot_end}`; return r; });
+  sortable(document.getElementById('ucs'), rows, ['chromosome', 'start', 'end', 'length (bp)', 'also identical in'], key => { setView(key); document.getElementById('browser').scrollIntoView({ behavior: 'smooth' }); }); }
+else document.getElementById('ucs').innerHTML = '<p class="small">(the k = 1001 run was not available when this site was built)</p>';
+
+// ---------- start ----------
+const h0 = decodeURIComponent(location.hash.slice(1));
+setView(h0 && parseRegion(h0) ? h0 : 'chr1:117000000-146000000');
+})();
+</script>
+</body>
+</html>

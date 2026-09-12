@@ -1,0 +1,10 @@
+# large, regenerable inputs and intermediates (scripts/fetch_data.sh, scripts/run_all.sh)
+data/
+out/
+target/
+# local python environment
+.venv/
+__pycache__/
+*.pyc
+.DS_Store
+*.log
