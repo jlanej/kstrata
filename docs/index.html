@@ -105,8 +105,9 @@ kbd { font: 12px monospace; background:#eee; padding: 1px 4px; border-radius: 3p
 
 <h2>Figures from the report</h2>
 <div class="panel">
-  <p class="small">The idea (top), the strata across five centromeres at 10 kb resolution, the genome-wide view at 100 kb, and sharing as a function of k by region class. Click any figure to open it full size; all figures and the tables behind them are in the <a href="https://github.com/jlanej/kstrata">repository</a>.</p>
+  <p class="small">The idea (top), the survival length of exact k-mers per base in seven regions (the same quantity that colours the per-base rows above), the strata across five centromeres at 10 kb resolution, the genome-wide view at 100 kb, and sharing as a function of k by region class. Click any figure to open it full size; all figures and the tables behind them are in the <a href="https://github.com/jlanej/kstrata">repository</a>.</p>
   <a href="fig/fig_concept.png"><img src="fig/fig_concept.png" style="width:100%;max-width:1000px" alt="concept"></a>
+  <a href="fig/fig_survival.png"><img src="fig/fig_survival.png" style="width:100%;max-width:1000px" alt="survival length per base"></a>
   <a href="fig/fig_centromere_strata_k31.png"><img src="fig/fig_centromere_strata_k31.png" style="width:100%;max-width:1000px" alt="centromere strata"></a>
   <a href="fig/fig_genome_strata_k31.png"><img src="fig/fig_genome_strata_k31.png" style="width:100%;max-width:1000px" alt="genome-wide strata"></a>
   <a href="fig/fig_multik_sharing.png"><img src="fig/fig_multik_sharing.png" style="width:100%;max-width:1000px" alt="sharing against k"></a>
@@ -164,6 +165,13 @@ async function level(chrom, lev) {
 }
 async function annot(chrom) { const key = 'a_' + chrom; return cache[key] || (cache[key] = await (await fetch(`data/annot_${chrom}.json`)).json()); }
 async function spot(id) { const key = 's_' + id; return cache[key] || (cache[key] = await fetchBin(`data/spot_${id}.bin.gz`, Uint8Array)); }
+let survMeta = null; try { survMeta = await (await fetch('data/survival_meta.json')).json(); } catch (e) { survMeta = null; }
+async function survival(id) { if (!survMeta) return null; const key = 'v_' + id; if (key in cache) return cache[key]; try { cache[key] = await fetchBin(`data/surv_${id}.bin.gz`, Uint8Array); } catch (e) { cache[key] = null; } return cache[key]; }
+const SURV_EDGES = [1, 2, 4, 6, 8, 10, 12, 14, 18]; // ladder-index bins (k: 16-20, 21-30, 31-50, 51-80, 81-150, 151-300, 301-700, 701-2001)
+const SURV_COL = ['#f0f0f0', '#fee8c8', '#fdbb84', '#fc8d59', '#e34a33', '#b30000', '#7a0177', '#3f007d', '#08306b'];
+const SURV_LAB = ['absent at k=16', '16-20', '21-30', '31-50', '51-80', '81-150', '151-300', '301-700', '701-2001'];
+function survBin(ix) { if (ix === 0) return 0; for (let b = 0; b < SURV_EDGES.length - 1; b++) if (ix < SURV_EDGES[b + 1]) return b + 1; return SURV_COL.length - 1; }
+let rowMode = 'survival';
 const ucs = await (await fetch('data/ucs.json')).json().catch(() => []);
 const spots = meta.spots.concat(ucs.map(u => ({ id: u.spot, desc: `identical ${u.len} bp with siamang, ${u.chrom}:${fmt(u.start)}`, chrom: u.chrom, start: u.spot_start, end: u.spot_end, ucs: true })));
 
@@ -181,10 +189,11 @@ function legendHtml() {
   let h = '<b>age strata</b> ' + meta.ages.map((a, i) => `<span><span class="sw" style="background:${AGE_COL[i]}"></span>${a}</span>`).join('');
   h += '<br><b>present in</b> ' + SUBS.map(s => `<label><input type="checkbox" data-s="${s}" ${shown.has(s) ? 'checked' : ''}> <span class="sw" style="background:${SUBJ_COL[s]}"></span>${SUBJ_LAB[s]}</label>`).join('');
   h += ` <label><input type="checkbox" id="uniqChk" ${showUniq ? 'checked' : ''}> <span class="sw" style="background:#444"></span>single-copy in CHM13 (dashed)</label>`;
+  if (survMeta) h += `<br><b>per-base rows</b> <label><input type="radio" name="rowMode" value="survival" ${rowMode === 'survival' ? 'checked' : ''}> longest exact k-mer that exists (k):</label> ` + SURV_LAB.map((l, i) => `<span><span class="sw" style="background:${SURV_COL[i]};border:1px solid #ddd"></span>${l}</span>`).join('') + ` <label><input type="radio" name="rowMode" value="presence" ${rowMode === 'presence' ? 'checked' : ''}> presence of the 31-mer</label>`;
   return h;
 }
 const legend = document.getElementById('legend'); legend.innerHTML = legendHtml();
-legend.addEventListener('change', e => { const s = e.target.dataset.s; if (s) { e.target.checked ? shown.add(s) : shown.delete(s); } if (e.target.id === 'uniqChk') showUniq = e.target.checked; draw(); });
+legend.addEventListener('change', e => { if (e.target.name === 'rowMode') { rowMode = e.target.value; draw(); return; } const s = e.target.dataset.s; if (s) { e.target.checked ? shown.add(s) : shown.delete(s); } if (e.target.id === 'uniqChk') showUniq = e.target.checked; draw(); });
 
 function parseRegion(str) {
   const m = str.replace(/,/g, '').match(/^\s*(chr[0-9XY]+)\s*(?::\s*(\d+)\s*-\s*(\d+))?\s*$/i); if (!m) return null;
@@ -261,6 +270,7 @@ async function drawInner() {
   const sp = span <= 120000 ? spots.find(p => p.chrom === view.chrom && p.start <= view.s && p.end >= view.e) : null;
   if (sp) {
     const bytes = await spot(sp.id); const n = sp.end - sp.start; const pres = bytes.subarray(0, n), mult = bytes.subarray(n, 2 * n);
+    const sv = rowMode === 'survival' ? await survival(sp.id) : null;
     const rowh = (by1 - by0 - 26) / (SUBS.length + 2);
     const cols = new Float32Array(W * (SUBS.length + 8)); const cnt = new Float32Array(W);
     for (let b = Math.max(view.s, sp.start); b < Math.min(view.e, sp.end); b++) {
@@ -271,6 +281,15 @@ async function drawInner() {
     }
     for (let j = 0; j < SUBS.length; j++) { const y = by0 + 22 + j * rowh; 
       ctx.fillStyle = '#f2f2f2'; ctx.fillRect(0, y, W, rowh - 1);
+      if (sv) {
+        const row = sv.subarray(j * n, (j + 1) * n); const tmp = [];
+        for (let px = 0; px < W; px++) {
+          const b0 = Math.max(view.s, Math.floor(view.s + px * bpp)), b1 = Math.min(view.e, Math.ceil(view.s + (px + 1) * bpp));
+          tmp.length = 0; for (let b = b0; b < b1; b++) { const i = b - sp.start; if (i >= 0 && i < n && row[i] !== 255) tmp.push(row[i]); }
+          if (!tmp.length) continue; tmp.sort((a, b) => a - b); const med = tmp[tmp.length >> 1];
+          ctx.fillStyle = SURV_COL[survBin(med)]; ctx.fillRect(px, y, 1, rowh - 1);
+        }
+      } else
       for (let px = 0; px < W; px++) { const c = cnt[px]; if (!c) continue; const f = cols[px * (SUBS.length + 8) + j] / c; ctx.fillStyle = SUBJ_COL[SUBS[j]]; ctx.globalAlpha = f; ctx.fillRect(px, y, 1, rowh - 1); ctx.globalAlpha = 1; } }
     let y = by0 + 22 + SUBS.length * rowh; 
     for (let px = 0; px < W; px++) { const c = cnt[px]; if (!c) continue; let yy = y; for (let a = 0; a < 6; a++) { const h = (rowh - 1) * cols[px * (SUBS.length + 8) + SUBS.length + a] / c; ctx.fillStyle = AGE_COL[a]; ctx.fillRect(px, yy, 1, h); yy += h; } }
@@ -279,8 +298,8 @@ async function drawInner() {
     const labelBox = (txt, yy) => { ctx.font = '11px sans-serif'; const w = ctx.measureText(txt).width + 8; ctx.fillStyle = 'rgba(255,255,255,0.85)'; ctx.fillRect(2, yy - 11, w, 14); ctx.fillStyle = '#222'; ctx.fillText(txt, 6, yy); };
     SUBS.forEach((sname, j) => labelBox(SUBJ_LAB[sname], by0 + 22 + j * rowh + rowh / 2 + 4));
     labelBox('age stratum', by0 + 22 + SUBS.length * rowh + rowh / 2 + 4); labelBox('copies in CHM13 (log)', by0 + 22 + (SUBS.length + 1) * rowh + rowh / 2 + 4);
-    ctx.fillStyle = '#333'; ctx.font = '12px sans-serif'; ctx.fillText(`per-base view: ${sp.desc}` + (bpp > 1 ? ` (${bpp.toFixed(1)} bases per pixel; intensity = fraction present)` : ' (one base per pixel)'), 4, by0 + 12);
-    colAgg.spot = { sp, pres, mult };
+    ctx.fillStyle = '#333'; ctx.font = '12px sans-serif'; ctx.fillText(`per-base view: ${sp.desc}` + (sv ? ` (colour: longest exact k-mer starting at the base that exists in the genome; ${bpp > 1 ? bpp.toFixed(1) + ' bases per pixel, median' : 'one base per pixel'})` : (bpp > 1 ? ` (${bpp.toFixed(1)} bases per pixel; intensity = fraction present)` : ' (one base per pixel)')), 4, by0 + 12);
+    colAgg.spot = { sp, pres, mult, sv, n };
   } else {
     ctx.fillStyle = '#888'; ctx.font = '12px sans-serif';
     ctx.fillText(span <= 120000 ? 'no per-base data here: per-base views exist in the spotlight regions (grey bars above)' : 'zoom into a spotlight region (below 120 kb) for the per-base view', 4, by0 + 14);
@@ -300,7 +319,8 @@ ov.addEventListener('click', e => { const c = chromByName[view.chrom]; const bp 
 cv.addEventListener('mousemove', e => {
   if (!colAgg || dragging) return; const px = Math.floor(e.offsetX); const bp = Math.floor(bpOf(e.offsetX)); const a = colAgg.agg; const val = a[px * NC];
   let h = `<b>${view.chrom}:${fmt(bp)}</b><br>`;
-  if (colAgg.spot && e.offsetY >= H.base[0]) { const { sp, pres, mult } = colAgg.spot; const i = bp - sp.start; if (i >= 0 && i < sp.end - sp.start) { const p = pres[i], m = mult[i]; h += m ? `31-mer at this base: ${m} cop${m === 1 ? 'y' : 'ies'} in CHM13 (${m === 255 ? '≥255' : m})<br>present in: ${SUBS.filter((s, j) => (p >> j) & 1).map(s => SUBJ_LAB[s]).join(', ') || 'no other genome'}` : 'no valid 31-mer (N or contig end)'; } }
+  if (colAgg.spot && e.offsetY >= H.base[0]) { const { sp, pres, mult, sv, n } = colAgg.spot; const i = bp - sp.start; if (i >= 0 && i < sp.end - sp.start) { const p = pres[i], m = mult[i]; h += m ? `31-mer at this base: ${m} cop${m === 1 ? 'y' : 'ies'} in CHM13 (${m === 255 ? '≥255' : m})<br>present in: ${SUBS.filter((s, j) => (p >> j) & 1).map(s => SUBJ_LAB[s]).join(', ') || 'no other genome'}` : 'no valid 31-mer (N or contig end)';
+      if (sv) { const ks = survMeta.ks; h += '<br><b>longest exact k-mer from this base:</b><br>' + SUBS.map((s, j) => { const v = sv[j * n + i]; const t = v === 255 ? 'untestable' : v === 0 ? '&lt; 16' : (v >= ks.length ? '&ge; ' + ks[ks.length - 1] : `${ks[v - 1]}&ndash;${ks[v] - 1}`); return `<span style="color:${SUBJ_COL[s]}">■</span> ${SUBJ_LAB[s]}: ${t}`; }).join('<br>'); } } }
   else if (val) { h += `${colAgg.wsz / 1000} kb window(s), ${fmt(Math.round(val))} bases<br>`;
     h += SUBS.map((s, j) => `<span style="color:${SUBJ_COL[s]}">■</span> ${SUBJ_LAB[s]}: ${pct(a[px * NC + 2 + j], val)}%`).join('<br>') + `<br>■ single-copy: ${pct(a[px * NC + 1], val)}%<br><b>age:</b> ` + meta.ages.map((n, k) => `<span style="color:${AGE_COL[k]}">■</span>${pct(a[px * NC + 9 + k], val, 0)}%`).join(' '); }
   else h += 'no data';

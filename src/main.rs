@@ -33,6 +33,8 @@ enum Cmd {
         #[arg(long, default_value_t = 3.0)] budget_gb: f64,
         #[arg(long, default_value_t = 8.0)] chunk_mb: f64,
         #[arg(long)] no_self: bool,
+        /// for a small query (a few Mb): scan each subject once with a hash-set filter instead of partitioned sorting
+        #[arg(long)] small_query: bool,
         #[arg(long)] threads: Option<usize>,
         #[arg(long)] out: PathBuf,
     },
@@ -42,7 +44,7 @@ fn main() -> Result<()> {
     match Cli::parse().cmd {
         Cmd::Random { prefix, length, seed, contig } => seq::random(&prefix, length, seed, contig),
         Cmd::Prep { fasta, prefix, include } => seq::prep(&fasta, &prefix, include.as_deref()),
-        Cmd::Run { query, query_name, subjects, k, stride, query_parts, budget_gb, chunk_mb, no_self, threads, out } => {
+        Cmd::Run { query, query_name, subjects, k, stride, query_parts, budget_gb, chunk_mb, no_self, small_query, threads, out } => {
             if let Some(t) = threads { rayon::ThreadPoolBuilder::new().num_threads(t).build_global()?; }
             if stride == 0 { bail!("stride must be >= 1"); }
             let q = seq::load(&query, &query_name)?;
@@ -53,7 +55,7 @@ fn main() -> Result<()> {
             }
             let opts = run::RunOpts {
                 k, stride, query_parts, budget_bytes: (budget_gb * 1e9) as u64,
-                chunk_len: (chunk_mb * 1e6) as u64, out: out.clone(), no_self,
+                chunk_len: (chunk_mb * 1e6) as u64, out: out.clone(), no_self, small_query,
             };
             let meta = run::run(&q, &subs, &opts)?;
             std::fs::write(out.with_extension("json"), serde_json::to_string_pretty(&meta)?)?;

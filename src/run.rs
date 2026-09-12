@@ -10,6 +10,18 @@ use anyhow::{bail, Result};
 use memmap2::MmapMut;
 use rayon::prelude::*;
 use serde::Serialize;
+use std::collections::HashSet;
+use std::hash::{BuildHasherDefault, Hasher};
+
+/// Keys are already mixed 64-bit values, so the set can use them directly as hashes.
+#[derive(Default)]
+pub struct IdHasher(u64);
+impl Hasher for IdHasher {
+    fn finish(&self) -> u64 { self.0 }
+    fn write(&mut self, bytes: &[u8]) { for b in bytes { self.0 = (self.0 << 8) | *b as u64; } }
+    fn write_u64(&mut self, v: u64) { self.0 = v; }
+}
+type KeySet = HashSet<u64, BuildHasherDefault<IdHasher>>;
 use std::fs::OpenOptions;
 use std::path::PathBuf;
 use std::time::Instant;
@@ -24,6 +36,8 @@ pub struct RunOpts {
     pub chunk_len: u64,
     pub out: PathBuf,
     pub no_self: bool,
+    /// scan each subject once, keeping only k-mers of the (small) query, instead of partitioned sorting
+    pub small_query: bool,
 }
 
 #[derive(Serialize)]
@@ -60,13 +74,18 @@ fn log(t0: &Instant, msg: &str) {
 }
 
 fn scan_keys(exact: bool, g: &Genome, k: usize, lo: u64, hi: u64, chunk: u64) -> Vec<u64> {
-    if exact { scan::<Exact, u64, _>(g, k, lo, hi, 1, chunk, |key, _| key) }
-    else { scan::<Poly, u64, _>(g, k, lo, hi, 1, chunk, |key, _| key) }
+    if exact { scan::<Exact, u64, _>(g, k, lo, hi, 1, chunk, |key, _| Some(key)) }
+    else { scan::<Poly, u64, _>(g, k, lo, hi, 1, chunk, |key, _| Some(key)) }
+}
+
+fn scan_keys_in(exact: bool, g: &Genome, k: usize, set: &KeySet, chunk: u64) -> Vec<u64> {
+    if exact { scan::<Exact, u64, _>(g, k, 0, u64::MAX, 1, chunk, |key, _| if set.contains(&key) { Some(key) } else { None }) }
+    else { scan::<Poly, u64, _>(g, k, 0, u64::MAX, 1, chunk, |key, _| if set.contains(&key) { Some(key) } else { None }) }
 }
 
 fn scan_pairs(exact: bool, g: &Genome, k: usize, lo: u64, hi: u64, stride: u64, chunk: u64) -> Vec<(u64, u64)> {
-    if exact { scan::<Exact, (u64, u64), _>(g, k, lo, hi, stride, chunk, |key, pos| (key, pos)) }
-    else { scan::<Poly, (u64, u64), _>(g, k, lo, hi, stride, chunk, |key, pos| (key, pos)) }
+    if exact { scan::<Exact, (u64, u64), _>(g, k, lo, hi, stride, chunk, |key, pos| Some((key, pos))) }
+    else { scan::<Poly, (u64, u64), _>(g, k, lo, hi, stride, chunk, |key, pos| Some((key, pos))) }
 }
 
 pub fn run(query: &Genome, subjects: &[Genome], o: &RunOpts) -> Result<Meta> {
@@ -76,10 +95,10 @@ pub fn run(query: &Genome, subjects: &[Genome], o: &RunOpts) -> Result<Meta> {
     let exact = o.k <= 32;
     let n_total = query.len();
     let n_entries = (n_total + o.stride - 1) / o.stride;
-    let query_parts = match o.query_parts {
+    let query_parts = if o.small_query { 1 } else { match o.query_parts {
         Some(p) => next_pow2(p as u64) as u32,
         None => next_pow2((n_entries * 16 + o.budget_bytes - 1) / o.budget_bytes) as u32,
-    };
+    } };
     let pbits = log2(query_parts as u64);
     let sub_parts = |len: u64| -> u32 {
         let per_part = len / query_parts as u64 + 1;
@@ -150,12 +169,15 @@ pub fn run(query: &Genome, subjects: &[Genome], o: &RunOpts) -> Result<Meta> {
             log(&t0, "self multiplicity done");
         }
 
+        let qset: Option<KeySet> = if o.small_query { Some(q.iter().map(|e| e.0).collect()) } else { None };
+        if let Some(set) = &qset { log(&t0, &format!("small-query mode: {} distinct query k-mers", set.len())); }
         for (si, s) in subjects.iter().enumerate() {
             let bit = 1u8 << si;
+            if qset.is_some() { stats[si].sub_parts = 1; }
             let mbits = log2(stats[si].sub_parts as u64);
             for sub in 0..stats[si].sub_parts as u64 {
                 let (slo, shi) = range(pbits + mbits, (part << mbits) | sub);
-                let mut keys = scan_keys(exact, s, o.k, slo, shi, o.chunk_len);
+                let mut keys = match &qset { Some(set) => scan_keys_in(exact, s, o.k, set, o.chunk_len), None => scan_keys(exact, s, o.k, slo, shi, o.chunk_len) };
                 keys.par_sort_unstable();
                 keys.dedup();
                 stats[si].distinct += keys.len() as u64;

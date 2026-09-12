@@ -77,10 +77,11 @@ def main():
             write_fa(f"{td}/{name}.fa", d)
             subprocess.run([BIN, "prep", f"{td}/{name}.fa", f"{td}/{name}"], check=True)
         fails = 0
-        for k, stride, parts in [(21, 1, 1), (21, 1, 4), (32, 1, 2), (16, 4, 2), (33, 1, 1), (51, 1, 4), (51, 4, 2), (201, 1, 2), (201, 8, 4)]:
+        for k, stride, parts in [(21, 1, 1), (21, 1, 4), (32, 1, 2), (16, 4, 2), (33, 1, 1), (51, 1, 4), (51, 4, 2), (201, 1, 2), (201, 8, 4), (25, 1, "small"), (101, 2, "small")]:
             out = f"{td}/o_{k}_{stride}_{parts}"
+            extra = ["--small-query"] if parts == "small" else ["--query-parts", str(parts)]
             subprocess.run([BIN, "run", "--query", f"{td}/q", "--query-name", "q", "--subject", f"s1={td}/s1", "--subject", f"s2={td}/s2",
-                            "-k", str(k), "--stride", str(stride), "--query-parts", str(parts), "--budget-gb", "0.0001", "--chunk-mb", "0.005", "--out", out],
+                            "-k", str(k), "--stride", str(stride), "--budget-gb", "0.0001", "--chunk-mb", "0.005", "--out", out] + extra,
                            check=True, stderr=subprocess.DEVNULL)
             pres = np.fromfile(out + ".pres.u8", np.uint8); mult = np.fromfile(out + ".mult.u8", np.uint8)
             ep, em = expected(q, [s1, s2], k, stride)
@@ -92,7 +93,7 @@ def main():
             exp_hist = {}
             for c in qk.values(): exp_hist[c] = exp_hist.get(c, 0) + 1
             ok3 = hist == exp_hist
-            print(f"k={k:4d} stride={stride} parts={parts} mode={meta['mode']:7s} arrays={'OK' if ok else 'FAIL'} distinct={'OK' if ok2 else 'FAIL'} hist={'OK' if ok3 else 'FAIL'} "
+            print(f"k={k:4d} stride={stride} parts={str(parts):5s} mode={meta['mode']:7s} arrays={'OK' if ok else 'FAIL'} distinct={'OK' if ok2 else 'FAIL'} hist={'OK' if ok3 else 'FAIL'} "
                   f"shared={[ (s['name'], s['shared_entries']) for s in meta['subjects']]} nonzero_pres={int((pres>0).sum())} mult>1={int((mult>1).sum())}")
             if not (ok and ok2 and ok3):
                 fails += 1

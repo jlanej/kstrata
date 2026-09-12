@@ -20,7 +20,7 @@ pub fn chunks(g: &Genome, chunk_len: u64) -> Vec<Chunk> {
     v
 }
 
-pub fn scan<R: Roller, T: Send, F: Fn(u64, u64) -> T + Sync>(
+pub fn scan<R: Roller, T: Send, F: Fn(u64, u64) -> Option<T> + Sync>(
     g: &Genome, k: usize, lo: u64, hi: u64, stride: u64, chunk_len: u64, make: F,
 ) -> Vec<T> {
     let _ = g.seq.advise(memmap2::Advice::Sequential);
@@ -46,7 +46,7 @@ pub fn scan<R: Roller, T: Send, F: Fn(u64, u64) -> T + Sync>(
                     let s = q + 1 - k64;
                     if s >= valid_from && (stride == 1 || s % stride == 0) {
                         let key = r.key();
-                        if key >= lo && key <= hi { out.push(make(key, s)); }
+                        if key >= lo && key <= hi { if let Some(v) = make(key, s) { out.push(v); } }
                     }
                 }
                 q += 1;

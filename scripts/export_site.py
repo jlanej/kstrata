@@ -128,7 +128,7 @@ if os.path.exists(K1 + ".json"):
             ucs.append({"chrom": chrom, "start": ps, "end": pe, "len": pe - ps, "in": [n for n, v in bits.items() if v]})
     ucs.sort(key=lambda u: -u["len"])
     for i, u in enumerate(ucs):
-        off = {c: st_ for c, st_, l in contigs}[u["chrom"]]; s = max(u["start"] - 3000, 0); e = u["end"] + 3000
+        off = {c: st_ for c, st_, l in contigs}[u["chrom"]]; s = max(u["start"] - 3000, 0); e = min(u["end"] + 3000, {c: l for c, st_, l in contigs}[u["chrom"]])
         pres = np.fromfile(RUN + ".pres.u8", np.uint8, count=e - s, offset=off + s); mult = np.fromfile(RUN + ".mult.u8", np.uint8, count=e - s, offset=off + s)
         sid = f"ucs{i:02d}"
         write_gz(f"{OUT}/spot_{sid}.bin.gz", pres.tobytes() + mult.tobytes())

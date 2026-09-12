@@ -334,6 +334,33 @@ identity is common within a species and, outside the telomeres, absent between s
 per-segment list with its classification is `tables/ucs_k1001_siamang.json`.
 <!-- /ladder:prose -->
 
+### 4.3b Survival length per base: the question, drawn
+
+The two questions of §0, *in which genomes* and *up to what k*, are answered together by one
+number per base and genome: the longest exact k-mer starting at that base that still exists in
+that genome. It was computed on the k ladder (17 values from 16 to 2,001) for the 64 spotlight
+regions of the site (6.9 Mb; `scripts/run_survival_ladder.sh`, `scripts/survival.py`; each k
+takes about a minute because the query is small and every subject is scanned once against a
+hash set of the query's k-mers), and it is the colour of the per-base rows in the site's
+spotlight views. The figure shows seven regions.
+
+![Survival length per base](fig/fig_survival.png)
+
+In ordinary sequence (chr20) the median survival is 51 bases in chimpanzee, bonobo and gorilla,
+25 in the orangutans and 21 in siamang, against 1,501 or more in the other human: the expected
+spacing of differences at 1.2, 3 and 4% divergence and at 0.1% heterozygosity. Inside the chr1
+active HOR array the median falls to 25 in the African apes and to 16, the shortest k tested,
+in orangutans and siamang, and the strips are uniformly pale: no copy in any ape matches a human
+copy for more than a few dozen bases. The monomeric layer beside the chr8 array is patchier and
+older, with runs of 50-300 bases in gorilla and both orangutans. HSat2 (chr16) survives to 21
+bases in the African apes and to 16 in the others; HSat1B (chrY) to 16 in every ape, its
+31-mers gone, while the other human carries every 2 kb of it. HSat3 (chr9) shows the same
+short survival in all six apes, the (GGAAT)n vocabulary and nothing longer. The PAX6-region
+element is the opposite: 1.1 kb over which every genome matches for 700 bases or more, flanked
+by sequence that decays to the ordinary 20-100 within a kilobase on either side. The colour
+scale is the same in every panel; what changes between regions is the scale at which the
+genomes still agree.
+
 ### 4.4 Apparent divergence from k-mer survival
 
 In sequence without repeats, an exact k-mer survives between two genomes when none of its k
