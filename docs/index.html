@@ -72,6 +72,15 @@ kbd { font: 12px monospace; background:#eee; padding: 1px 4px; border-radius: 3p
     <label>jump to <select id="jumpSel"><option value="">a centromere or a spotlight…</option></select></label>
     <span id="status" class="small"></span>
   </div>
+  <details class="small" style="margin:4px 0 8px"><summary style="cursor:pointer">How to read this</summary>
+    <ul style="margin:6px 0 0 18px; padding:0">
+      <li><b>Windows.</b> Every track is computed in the same windows: 100 kb when a view is wider than 50 Mb, 10 kb above 5 Mb, 1 kb below (the current size is in the status line and the track titles). The thin strip above is always the whole chromosome at 100 kb, with the current view boxed.</li>
+      <li><b>Age strata (stacked area).</b> Each valid 31-mer in a window is placed in the stratum of the deepest lineage that carries it: siamang, orangutan, gorilla, Pan (chimpanzee or bonobo), human only (in HG002 but in no ape), or CHM13 only. The stack shows the share of the window's 31-mers in each stratum; the six shares sum to 100%. A tall blue block means most k-mers of the window already existed before the ape lineages split; a tall red block means most arose or were homogenized after the human lineage separated.</li>
+      <li><b>Present in each genome (lines).</b> The fraction of the window's 31-mers that exist anywhere in that genome. The lines are not additive and are nested in the usual case (a k-mer in siamang is usually also in chimpanzee). "Anywhere" means presence, not orthology: in repeats a k-mer is often found at other loci. The dashed line is the share of the window's 31-mers that occur exactly once in CHM13.</li>
+      <li><b>Annotation.</b> censat v2.1 classes (grey centromere transition; reds alpha-satellite, darkest for the active array; greens HSat; blues beta/gamma satellite; purple other) and segmental duplications (yellow).</li>
+      <li><b>Spotlights and per-base view.</b> Grey bars mark regions with per-base data (blue bars: the identical-with-siamang segments). Inside one, below 120 kb, the bottom panel shows one row per genome and, in the default colouring, how long an exact match starting at each base survives (16 to 2,001); the age strip and copy-number row follow. Hover anywhere for the numbers.</li>
+    </ul>
+  </details>
   <canvas id="overview" height="26"></canvas>
   <canvas id="cv" height="600"></canvas>
   <div id="readout"></div>
@@ -95,6 +104,12 @@ kbd { font: 12px monospace; background:#eee; padding: 1px 4px; border-radius: 3p
 <div class="panel">
   <p class="small">Fraction of the array's 31-mers present in each genome, computed exactly from the base-resolution arrays. Click a row to browse it. Gorilla often shows the highest sharing; read that as repertoire size (the gorilla assembly is the largest, with the largest alpha-satellite repertoire), not as phylogeny.</p>
   <div id="arrays"></div>
+</div>
+
+<h2>Two clocks: sharing by copy number</h2>
+<div class="panel">
+  <p class="small">The number of copies a 31-mer has in CHM13 changes what its presence in another genome means. Single-copy k-mers found in an ape speak about the locus; multi-copy k-mers found in an ape speak about the age of a repeat family. Outside repeats, 66% of single-copy 31-mers exist in chimpanzee and 30% in siamang, but 98 to 100% of 31-mers with ten or more copies exist in every ape (transposable-element and simple-repeat words). Inside an active HOR array, 85% of positions carry a 31-mer with 255 or more copies (44% of those exist in chimpanzee), while the rare single-copy 31-mers are 44% private to CHM13 and 45% human-only. The browser's "single-copy 31-mers only" switch shows the locus clock; the default shows the vocabulary clock.</p>
+  <a href="fig/fig_multiplicity.png"><img src="fig/fig_multiplicity.png" style="width:100%;max-width:1100px" alt="sharing by copy number"></a>
 </div>
 
 <h2>Kilobases identical between human and gibbon</h2>
@@ -144,7 +159,8 @@ async function fetchBin(url, ctor) {
 let meta;
 try { const r = await fetch('data/meta.json'); if (!r.ok) throw new Error(r.status); meta = await r.json(); }
 catch (e) { document.getElementById('cards').innerHTML = '<div class="note">The data files (docs/data/) are missing from this copy of the site; run scripts/export_site.py after scripts/rebuild_site_data.sh to build them.</div>'; return; }
-const SUBS = meta.subjects, NC = 15;
+const SUBS = meta.subjects, NC = meta.ncols || 15; const HAS_SC = NC >= 28;
+let kmode = 'all'; // 'all' or 'single': which k-mers the strata and presence tracks count
 const chroms = meta.chroms; const chromByName = Object.fromEntries(chroms.map(c => [c.name, c]));
 
 // ---------- headline cards ----------
@@ -189,11 +205,12 @@ function legendHtml() {
   let h = '<b>age strata</b> ' + meta.ages.map((a, i) => `<span><span class="sw" style="background:${AGE_COL[i]}"></span>${a}</span>`).join('');
   h += '<br><b>present in</b> ' + SUBS.map(s => `<label><input type="checkbox" data-s="${s}" ${shown.has(s) ? 'checked' : ''}> <span class="sw" style="background:${SUBJ_COL[s]}"></span>${SUBJ_LAB[s]}</label>`).join('');
   h += ` <label><input type="checkbox" id="uniqChk" ${showUniq ? 'checked' : ''}> <span class="sw" style="background:#444"></span>single-copy in CHM13 (dashed)</label>`;
+  if (HAS_SC) h += `<br><b>count</b> <label><input type="radio" name="kmode" value="all" ${kmode === 'all' ? 'checked' : ''}> all 31-mers</label> <label><input type="radio" name="kmode" value="single" ${kmode === 'single' ? 'checked' : ''}> single-copy 31-mers only (the k-mer occurs once in CHM13; presence in another genome then speaks about this locus rather than a repeat family)</label>`;
   if (survMeta) h += `<br><b>per-base rows</b> <label><input type="radio" name="rowMode" value="survival" ${rowMode === 'survival' ? 'checked' : ''}> longest exact k-mer that exists (k):</label> ` + SURV_LAB.map((l, i) => `<span><span class="sw" style="background:${SURV_COL[i]};border:1px solid #ddd"></span>${l}</span>`).join('') + ` <label><input type="radio" name="rowMode" value="presence" ${rowMode === 'presence' ? 'checked' : ''}> presence of the 31-mer</label>`;
   return h;
 }
 const legend = document.getElementById('legend'); legend.innerHTML = legendHtml();
-legend.addEventListener('change', e => { if (e.target.name === 'rowMode') { rowMode = e.target.value; draw(); return; } const s = e.target.dataset.s; if (s) { e.target.checked ? shown.add(s) : shown.delete(s); } if (e.target.id === 'uniqChk') showUniq = e.target.checked; draw(); });
+legend.addEventListener('change', e => { if (e.target.name === 'rowMode') { rowMode = e.target.value; draw(); return; } if (e.target.name === 'kmode') { kmode = e.target.value; draw(); return; } const s = e.target.dataset.s; if (s) { e.target.checked ? shown.add(s) : shown.delete(s); } if (e.target.id === 'uniqChk') showUniq = e.target.checked; draw(); });
 
 function parseRegion(str) {
   const m = str.replace(/,/g, '').match(/^\s*(chr[0-9XY]+)\s*(?::\s*(\d+)\s*-\s*(\d+))?\s*$/i); if (!m) return null;
@@ -239,20 +256,24 @@ async function drawInner() {
   }
   colAgg = { agg, wsz, lev };
   // age composition (stacked)
+  const sc = kmode === 'single' && HAS_SC; const DEN = sc ? 1 : 0, PRES0 = sc ? 15 : 2, AGE0 = sc ? 22 : 9;
   const [ay0, ay1] = H.age; const ah = ay1 - ay0;
   for (let px = 0; px < W; px++) {
-    const val = agg[px * NC]; if (!val) continue; let y = ay1;
-    for (let a = 0; a < 6; a++) { const h = ah * agg[px * NC + 9 + a] / val; ctx.fillStyle = AGE_COL[a]; ctx.fillRect(px, y - h, 1, h); y -= h; }
+    const val = agg[px * NC + DEN]; if (!val) continue; let y = ay1;
+    for (let a = 0; a < 6; a++) { const h = ah * agg[px * NC + AGE0 + a] / val; ctx.fillStyle = AGE_COL[a]; ctx.fillRect(px, y - h, 1, h); y -= h; }
   }
-  ctx.fillStyle = '#333'; ctx.font = '12px sans-serif'; ctx.fillText('age stratum of the 31-mers (share of each window)', 4, ay0 - 1 + 10);
+  const wlab = lev.replace('k', ' kb'); ctx.fillStyle = '#333'; ctx.font = '12px sans-serif'; ctx.fillText(`age strata: share of each ${wlab} window's ${sc ? 'single-copy ' : ''}31-mers in each stratum (stacked to 100%)`, 4, ay0 - 1 + 10);
+  ctx.fillStyle = '#888'; ctx.font = '10px sans-serif'; ctx.fillText('100%', W - 26, ay0 + 10); ctx.fillText('0%', W - 16, ay1 - 2); ctx.font = '12px sans-serif';
   // presence lines
   const [py0, py1] = H.pres; const ph = py1 - py0; ctx.strokeStyle = '#eee'; ctx.lineWidth = 1;
   for (const g of [0, 0.5, 1]) { ctx.beginPath(); ctx.moveTo(0, py1 - g * ph); ctx.lineTo(W, py1 - g * ph); ctx.stroke(); }
-  ctx.fillStyle = '#333'; ctx.fillText('fraction of 31-mers present (0–1)', 4, py0 + 10);
+  ctx.fillStyle = '#333'; ctx.fillText(`present in each genome: fraction of the ${wlab} window's ${sc ? 'single-copy ' : ''}31-mers found anywhere in that genome (lines are not additive)`, 4, py0 + 10);
+  ctx.fillStyle = '#888'; ctx.font = '10px sans-serif'; for (const g of [0, 0.5, 1]) ctx.fillText(g.toFixed(1), W - 20, py1 - g * ph + (g === 0 ? -2 : g === 1 ? 10 : 4)); ctx.font = '12px sans-serif';
   const drawLine = (col, colour, dash) => { ctx.strokeStyle = colour; ctx.lineWidth = 1.2; ctx.setLineDash(dash || []); ctx.beginPath(); let pen = false;
-    for (let px = 0; px < W; px++) { const val = agg[px * NC]; if (!val) { pen = false; continue; } const y = py1 - ph * agg[px * NC + col] / val; if (!pen) { ctx.moveTo(px, y); pen = true; } else ctx.lineTo(px, y); } ctx.stroke(); ctx.setLineDash([]); };
-  SUBS.forEach((s, j) => { if (shown.has(s)) drawLine(2 + j, SUBJ_COL[s]); });
-  if (showUniq) drawLine(1, '#444', [3, 3]);
+    for (let px = 0; px < W; px++) { const val = agg[px * NC + DEN]; if (!val) { pen = false; continue; } const y = py1 - ph * agg[px * NC + col] / val; if (!pen) { ctx.moveTo(px, y); pen = true; } else ctx.lineTo(px, y); } ctx.stroke(); ctx.setLineDash([]); };
+  SUBS.forEach((s, j) => { if (shown.has(s)) drawLine(PRES0 + j, SUBJ_COL[s]); });
+  if (showUniq && !sc) drawLine(1, '#444', [3, 3]);
+  colAgg.sc = sc;
   // spotlight bar
   const [sy0, sy1] = H.spotbar;
   for (const sp of spots) if (sp.chrom === view.chrom && sp.end > view.s && sp.start < view.e) { const x0 = Math.max(0, (sp.start - view.s) / bpp), x1 = Math.min(W, (sp.end - view.s) / bpp); ctx.fillStyle = sp.ucs ? '#4575b4' : '#888'; ctx.fillRect(x0, sy0, Math.max(1.5, x1 - x0), sy1 - sy0); }
@@ -313,6 +334,7 @@ async function drawOverview() {
   for (let px = 0; px < W; px++) { const i = Math.min(n - 1, Math.floor(px * n / W)); const val = arr[i * NC]; if (!val) continue; let y = 22;
     for (let a = 0; a < 6; a++) { const h = 18 * arr[i * NC + 9 + a] / val; octx.fillStyle = AGE_COL[a]; octx.fillRect(px, y - h, 1, h); y -= h; } }
   octx.strokeStyle = '#000'; octx.lineWidth = 1.5; octx.strokeRect(view.s / c.length * W, 2, Math.max(2, (view.e - view.s) / c.length * W), 21);
+  octx.fillStyle = 'rgba(255,255,255,0.8)'; octx.fillRect(2, 4, 198, 13); octx.fillStyle = '#333'; octx.font = '10px sans-serif'; octx.fillText(`whole ${view.chrom}, age strata per 100 kb; box = current view`, 5, 14);
 }
 ov.addEventListener('click', e => { const c = chromByName[view.chrom]; const bp = e.offsetX / ov.clientWidth * c.length; const w = view.e - view.s; setView(`${view.chrom}:${Math.round(bp - w / 2)}-${Math.round(bp + w / 2)}`); });
 // hover
@@ -321,8 +343,9 @@ cv.addEventListener('mousemove', e => {
   let h = `<b>${view.chrom}:${fmt(bp)}</b><br>`;
   if (colAgg.spot && e.offsetY >= H.base[0]) { const { sp, pres, mult, sv, n } = colAgg.spot; const i = bp - sp.start; if (i >= 0 && i < sp.end - sp.start) { const p = pres[i], m = mult[i]; h += m ? `31-mer at this base: ${m} cop${m === 1 ? 'y' : 'ies'} in CHM13 (${m === 255 ? '≥255' : m})<br>present in: ${SUBS.filter((s, j) => (p >> j) & 1).map(s => SUBJ_LAB[s]).join(', ') || 'no other genome'}` : 'no valid 31-mer (N or contig end)';
       if (sv) { const ks = survMeta.ks; h += '<br><b>longest exact k-mer from this base:</b><br>' + SUBS.map((s, j) => { const v = sv[j * n + i]; const t = v === 255 ? 'untestable' : v === 0 ? '&lt; 16' : (v >= ks.length ? '&ge; ' + ks[ks.length - 1] : `${ks[v - 1]}&ndash;${ks[v] - 1}`); return `<span style="color:${SUBJ_COL[s]}">■</span> ${SUBJ_LAB[s]}: ${t}`; }).join('<br>'); } } }
-  else if (val) { h += `${colAgg.wsz / 1000} kb window(s), ${fmt(Math.round(val))} bases<br>`;
-    h += SUBS.map((s, j) => `<span style="color:${SUBJ_COL[s]}">■</span> ${SUBJ_LAB[s]}: ${pct(a[px * NC + 2 + j], val)}%`).join('<br>') + `<br>■ single-copy: ${pct(a[px * NC + 1], val)}%<br><b>age:</b> ` + meta.ages.map((n, k) => `<span style="color:${AGE_COL[k]}">■</span>${pct(a[px * NC + 9 + k], val, 0)}%`).join(' '); }
+  else if (val) { const sc = colAgg.sc; const den = sc ? a[px * NC + 1] : val; const P0 = sc ? 15 : 2, A0 = sc ? 22 : 9;
+    h += `${colAgg.wsz / 1000} kb window(s), ${fmt(Math.round(val))} bases` + (sc ? `, ${fmt(Math.round(den))} single-copy` : '') + `<br>`;
+    h += SUBS.map((s, j) => `<span style="color:${SUBJ_COL[s]}">■</span> ${SUBJ_LAB[s]}: ${pct(a[px * NC + P0 + j], den)}%`).join('<br>') + `<br>■ single-copy: ${pct(a[px * NC + 1], val)}%<br><b>age:</b> ` + meta.ages.map((n, k) => `<span style="color:${AGE_COL[k]}">■</span>${pct(a[px * NC + A0 + k], den, 0)}%`).join(' '); }
   else h += 'no data';
   readout.innerHTML = h; readout.style.display = 'block'; readout.style.left = Math.min(e.offsetX + 16, cv.clientWidth - 260) + 'px'; readout.style.top = (e.offsetY + 40) + 'px';
 });

@@ -1,9 +1,10 @@
 """Export the base-resolution k=31 strata into the static-site data files under docs/data/.
 
-Levels: w1k_<chrom>.bin.gz and w10k_<chrom>.bin.gz (uint16, one row per window, 15 columns) and
+Levels: w1k_<chrom>.bin.gz and w10k_<chrom>.bin.gz (uint16, one row per window, 28 columns) and
 w100k.bin.gz (uint32, all chromosomes concatenated; offsets in meta.json). Columns:
   0 valid, 1 single-copy, 2..8 present in [hg002, chimp, bonobo, gorilla, borang, sorang, siamang],
-  9..14 age stratum [CHM13 only, human only, to Pan, to gorilla, to orangutan, to siamang].
+  9..14 age stratum [CHM13 only, human only, to Pan, to gorilla, to orangutan, to siamang],
+  15..21 present in each subject counting single-copy k-mers only, 22..27 age stratum of single-copy k-mers only.
 Spotlights: spot_<id>.bin.gz = presence bytes then multiplicity bytes for a region (per base).
 Annotation: annot_<chrom>.json = censat intervals [start, end, class] and merged SD intervals.
 """
@@ -41,20 +42,23 @@ def level_sums(col, w):
     pad = np.zeros(nw * w, np.uint8); pad[:n] = col
     return pad.reshape(nw, w).sum(axis=1, dtype=np.int64)
 
+NC = 28
 w100 = []; offsets = {}; total100 = 0; chrom_meta = []
 for chrom, start, length in contigs:
     pres = np.fromfile(RUN + ".pres.u8", np.uint8, count=length, offset=start)
     mult = np.fromfile(RUN + ".mult.u8", np.uint8, count=length, offset=start)
     valid = mult > 0; age = lut[pres]
-    cols = [valid, valid & (mult == 1)] + [valid & (((pres >> j) & 1) == 1) for j in range(7)] + [valid & (age == a) for a in range(6)]
-    k1 = np.stack([level_sums(c.view(np.uint8), 1000) for c in cols], axis=1)      # (nwin, 15)
-    del cols, pres, mult, valid, age
+    single = valid & (mult == 1)
+    cols = [valid, single] + [valid & (((pres >> j) & 1) == 1) for j in range(7)] + [valid & (age == a) for a in range(6)] \
+         + [single & (((pres >> j) & 1) == 1) for j in range(7)] + [single & (age == a) for a in range(6)]
+    k1 = np.stack([level_sums(c.view(np.uint8), 1000) for c in cols], axis=1)      # (nwin, 28)
+    del cols, pres, mult, valid, age, single
     n1 = k1.shape[0]
     gz(f"{OUT}/w1k_{chrom}.bin.gz", k1.astype(np.uint16))
-    n10 = (n1 + 9) // 10; pad = np.zeros((n10 * 10, 15), np.int64); pad[:n1] = k1
-    k10 = pad.reshape(n10, 10, 15).sum(axis=1); gz(f"{OUT}/w10k_{chrom}.bin.gz", k10.astype(np.uint16))
-    n100 = (n10 + 9) // 10; pad = np.zeros((n100 * 10, 15), np.int64); pad[:n10] = k10
-    k100 = pad.reshape(n100, 10, 15).sum(axis=1); w100.append(k100.astype(np.uint32)); offsets[chrom] = total100; total100 += n100
+    n10 = (n1 + 9) // 10; pad = np.zeros((n10 * 10, NC), np.int64); pad[:n1] = k1
+    k10 = pad.reshape(n10, 10, NC).sum(axis=1); gz(f"{OUT}/w10k_{chrom}.bin.gz", k10.astype(np.uint16))
+    n100 = (n10 + 9) // 10; pad = np.zeros((n100 * 10, NC), np.int64); pad[:n10] = k10
+    k100 = pad.reshape(n100, 10, NC).sum(axis=1); w100.append(k100.astype(np.uint32)); offsets[chrom] = total100; total100 += n100
     # annotation
     cen = [[int(s), int(e), int(c)] for s, e, c in iv.get(chrom, []) if c != CLASS_ID["SD"]]
     sd = sorted((int(s), int(e)) for s, e, c in iv.get(chrom, []) if c == CLASS_ID["SD"]); merged = []
@@ -142,7 +146,8 @@ for f in sorted(os.listdir("tables")):
     if f.startswith("chm13_k") and f.endswith("_all.classes.tsv"):
         k = int(f.split("_k")[1].split("_")[0]); ladder[k] = tsv("tables/" + f)
 json.dump({
-    "k": 31, "subjects": subs, "ages": ["CHM13 only", "human only", "to Pan", "to gorilla", "to orangutan", "to siamang"],
+    "k": 31, "ncols": NC, "columns": "0 valid, 1 single-copy, 2-8 present in subject (all k-mers), 9-14 age stratum (all k-mers), 15-21 present in subject (single-copy k-mers), 22-27 age stratum (single-copy k-mers)",
+    "subjects": subs, "ages": ["CHM13 only", "human only", "to Pan", "to gorilla", "to orangutan", "to siamang"],
     "classes": CLASS_ORDER, "chroms": chrom_meta, "spots": spot_meta,
     "k31": tsv("tables/chm13_k31_all.classes.tsv"), "ladder": {str(k): v for k, v in sorted(ladder.items())},
     "arrays": json.load(open("tables/chm13_k31_all.arrays.json")), "ages_table": json.load(open("tables/chm13_k31_all.ages.json")),

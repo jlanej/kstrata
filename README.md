@@ -478,6 +478,83 @@ the 100-999 bin follows by k = 1,001, while the two-copy bin (recent duplication
 diploid-like structure of some arrays) is the most persistent, still 1.7% at k = 2,001.
 <!-- /census:prose -->
 
+### 4.6b Sharing by copy number: two clocks
+
+The multiplicity of a k-mer in CHM13 changes what its presence in another genome means. A
+single-copy 31-mer found in chimpanzee is evidence about one locus; a 31-mer with a thousand
+copies found in chimpanzee says that the repeat family is older than the split, whatever
+happened at any one locus. The table gives, for each class and copy-number bin, the share of
+the class's positions in the bin, the fraction present in each genome, and three of the age
+strata (`tables/chm13_k31_by_multiplicity.json`; `scripts/by_multiplicity.py`).
+
+| region class | copies in CHM13 | share of class (%) | HG002 | chimp | gorilla | S. orang | siamang | CHM13 only | human only | to siamang |
+|:---|:---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| whole genome | 1 | 77.9 | 98.4 | 65.8 | 58.5 | 35.6 | 29.0 | 1.1 | 19.0 | 29.0 |
+| whole genome | 2 | 3.1 | 99.1 | 72.2 | 67.5 | 48.0 | 40.4 | 0.8 | 15.2 | 40.4 |
+| whole genome | 3-9 | 4.3 | 99.2 | 80.5 | 76.8 | 62.1 | 56.3 | 0.7 | 13.4 | 56.3 |
+| whole genome | 10-99 | 4.4 | 99.5 | 82.4 | 81.0 | 74.3 | 71.9 | 0.5 | 14.8 | 71.9 |
+| whole genome | 100-254 | 1.7 | 99.7 | 75.4 | 73.8 | 66.2 | 64.3 | 0.3 | 20.7 | 64.3 |
+| whole genome | >=255 | 8.6 | 99.9 | 66.5 | 65.5 | 53.5 | 51.1 | 0.1 | 29.2 | 51.1 |
+| non-repeat, non-SD | 1 | 87.7 | 98.6 | 66.5 | 59.3 | 36.2 | 29.6 | 1.0 | 18.4 | 29.6 |
+| non-repeat, non-SD | 2 | 1.6 | 99.8 | 86.1 | 81.8 | 66.6 | 60.3 | 0.1 | 3.8 | 60.3 |
+| non-repeat, non-SD | 3-9 | 2.3 | 99.9 | 96.3 | 95.1 | 90.4 | 87.8 | 0.1 | 1.4 | 87.8 |
+| non-repeat, non-SD | 10-99 | 3.1 | 100.0 | 99.3 | 99.2 | 98.2 | 97.6 | 0.0 | 0.5 | 97.6 |
+| non-repeat, non-SD | 100-254 | 1.1 | 100.0 | 99.8 | 99.8 | 98.6 | 98.2 | 0.0 | 0.1 | 98.2 |
+| non-repeat, non-SD | >=255 | 4.2 | 100.0 | 100.0 | 100.0 | 99.0 | 98.6 | 0.0 | 0.0 | 98.6 |
+| segmental duplication | 1 | 30.6 | 96.3 | 49.1 | 42.9 | 22.8 | 16.7 | 2.7 | 33.9 | 16.7 |
+| segmental duplication | 2 | 29.2 | 99.6 | 70.1 | 64.4 | 38.4 | 29.1 | 0.3 | 16.3 | 29.1 |
+| segmental duplication | 3-9 | 22.9 | 99.7 | 79.9 | 75.0 | 47.7 | 38.1 | 0.2 | 11.7 | 38.1 |
+| segmental duplication | 10-99 | 10.8 | 99.7 | 79.3 | 78.1 | 58.5 | 52.1 | 0.2 | 15.0 | 52.1 |
+| segmental duplication | 100-254 | 1.8 | 100.0 | 86.7 | 85.7 | 72.7 | 69.4 | 0.0 | 9.6 | 69.4 |
+| segmental duplication | >=255 | 4.6 | 100.0 | 99.4 | 99.4 | 97.0 | 96.5 | 0.0 | 0.5 | 96.5 |
+| monomeric alpha-satellite | 1 | 42.3 | 95.8 | 39.4 | 27.0 | 8.8 | 3.1 | 3.0 | 42.8 | 3.1 |
+| monomeric alpha-satellite | 2 | 12.1 | 99.9 | 51.2 | 41.5 | 20.3 | 8.0 | 0.1 | 34.0 | 8.0 |
+| monomeric alpha-satellite | 3-9 | 20.3 | 100.0 | 63.8 | 56.4 | 38.4 | 19.7 | 0.0 | 24.1 | 19.7 |
+| monomeric alpha-satellite | 10-99 | 13.9 | 100.0 | 96.1 | 94.4 | 88.2 | 69.0 | 0.0 | 1.9 | 69.0 |
+| monomeric alpha-satellite | 100-254 | 2.5 | 100.0 | 99.4 | 99.2 | 97.7 | 88.1 | 0.0 | 0.2 | 88.1 |
+| monomeric alpha-satellite | >=255 | 8.9 | 100.0 | 99.9 | 99.9 | 99.3 | 95.9 | 0.0 | 0.0 | 95.9 |
+| active HOR | 1 | 1.1 | 52.2 | 5.0 | 5.9 | 1.7 | 0.4 | 43.8 | 45.1 | 0.4 |
+| active HOR | 2 | 0.9 | 65.9 | 6.9 | 7.7 | 2.4 | 0.5 | 31.0 | 54.9 | 0.5 |
+| active HOR | 3-9 | 3.0 | 79.8 | 12.3 | 12.7 | 4.4 | 1.0 | 18.4 | 60.7 | 1.0 |
+| active HOR | 10-99 | 6.8 | 91.9 | 23.4 | 22.5 | 8.6 | 2.9 | 7.3 | 60.4 | 2.9 |
+| active HOR | 100-254 | 3.0 | 94.4 | 25.7 | 24.6 | 8.4 | 3.6 | 4.9 | 61.7 | 3.6 |
+| active HOR | >=255 | 85.3 | 99.5 | 44.3 | 43.8 | 17.5 | 6.4 | 0.4 | 45.0 | 6.4 |
+| HSat2 | 1 | 2.9 | 82.8 | 8.2 | 5.4 | 0.0 | 0.0 | 16.7 | 70.6 | 0.0 |
+| HSat2 | 2 | 1.5 | 88.8 | 12.5 | 9.9 | 0.1 | 0.0 | 10.9 | 70.1 | 0.0 |
+| HSat2 | 3-9 | 3.5 | 91.9 | 18.8 | 15.7 | 0.1 | 0.0 | 7.9 | 68.3 | 0.0 |
+| HSat2 | 10-99 | 10.0 | 99.2 | 15.5 | 13.3 | 0.1 | 0.0 | 0.8 | 80.1 | 0.0 |
+| HSat2 | 100-254 | 5.0 | 100.0 | 20.4 | 17.6 | 0.0 | 0.0 | 0.0 | 74.9 | 0.0 |
+| HSat2 | >=255 | 77.1 | 100.0 | 38.2 | 29.2 | 0.0 | 0.0 | 0.0 | 57.3 | 0.0 |
+| HSat3 | 1 | 4.9 | 88.8 | 7.7 | 4.5 | 4.0 | 1.5 | 10.0 | 73.8 | 1.5 |
+| HSat3 | 2 | 3.2 | 89.1 | 8.9 | 7.2 | 5.5 | 2.6 | 9.7 | 71.0 | 2.6 |
+| HSat3 | 3-9 | 8.6 | 97.7 | 15.9 | 14.0 | 9.3 | 5.4 | 2.0 | 69.7 | 5.4 |
+| HSat3 | 10-99 | 14.5 | 99.9 | 27.4 | 26.3 | 14.7 | 13.6 | 0.1 | 63.0 | 13.6 |
+| HSat3 | 100-254 | 5.7 | 100.0 | 38.7 | 36.0 | 22.2 | 22.6 | 0.0 | 53.6 | 22.6 |
+| HSat3 | >=255 | 63.2 | 100.0 | 36.7 | 34.4 | 22.5 | 22.9 | 0.0 | 56.7 | 22.9 |
+
+![Sharing and age by copy number](fig/fig_multiplicity.png)
+
+Outside the repeats the two clocks run apart: single-copy 31-mers (88% of the class) exist in
+chimpanzee 66% of the time and in siamang 30%, the survival expected from divergence, whereas
+31-mers with ten or more copies exist in every ape 98 to 100% of the time and 98% of them fall
+in the deepest stratum. Those are the transposable-element and simple-repeat words that every
+ape genome carries; they are 8% of non-repeat positions, and they inflate the class's sharing
+with siamang from 30% to 37%. In segmental duplications the single-copy 31-mers, which are the
+paralogue-distinguishing variants, are shared *less* than ordinary sequence (49% in chimpanzee,
+17% in siamang, 34% human-only) while the high-copy ones behave like the transposons. Inside the
+active HOR arrays 85% of positions carry a 31-mer with 255 or more copies, and those are the
+ones shared with the apes (44% in chimpanzee, 6% in siamang); the 1.1% of positions with a
+single-copy 31-mer are 44% private to CHM13 and 45% human-only, and only 5% exist in chimpanzee.
+HSat3 shows the same split (single-copy: 74% human-only, 10% CHM13-only; 255+ copies: 37% in
+chimpanzee, 23% in siamang). The rare k-mers that make one copy of an array different from the
+others are, then, mostly variants private to one person, which is what makes them usable for
+genotyping centromeres and useless for dating them.
+
+For reading the strata this means: the default tracks (all k-mers) measure the age of the
+sequence vocabulary, single-copy tracks measure the conservation of the locus, and the two
+should be read side by side. The site's browser has a switch for it, and every window file
+carries both sets of counts.
+
 ### 4.7 Stratigraphy of centromeres
 
 ![Centromere strata](fig/fig_centromere_strata_k31.png)
@@ -548,6 +625,17 @@ Tracks at 10 kb and 100 kb resolution (`out/runs/chm13_k31_all.win{10000,100000}
 columns: valid positions, single-copy positions, positions present in each genome, human-specific,
 CHM13-only, any ape) are regenerated by `scripts/strata.py`; the 100 kb track is kept in
 `tracks/`.
+
+**Reading the browser on the site.** Every track of the "Browse the strata" panel is computed in
+the same windows: 100 kb when the view is wider than 50 Mb, 10 kb above 5 Mb, 1 kb below; the
+strip above the tracks is always the whole chromosome at 100 kb. The stacked area is the age
+composition of the window: each valid 31-mer is placed in the stratum of its deepest carrier and
+the six shares sum to 100%. The lines are the fraction of the window's 31-mers present anywhere in
+each genome; they are not additive, and they are nested in the usual case (a k-mer in siamang is
+almost always also in chimpanzee). A switch restricts both tracks to the window's single-copy
+31-mers (§4.6b explains why that matters), and the per-base rows of the spotlight regions are
+coloured by the survival length of §4.3b. The 100 kb, 10 kb and 1 kb window files behind the
+browser (`docs/data/`, 28 columns per window) are produced by `scripts/export_site.py`.
 
 ### 4.9 Compute
 
